@@ -2,7 +2,11 @@
 .vs/
 bin/
 bin-int/
-Flux/vendor/
 
 # Files
 *.user
+
+*.slnx
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
