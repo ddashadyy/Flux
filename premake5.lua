@@ -10,6 +10,12 @@ workspace "Flux"
 
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
+IncludeDir = {}
+IncludeDir["GLFW"] = "Flux/vendor/GLFW/include"
+IncludeDir["Vulkan"] = "D:/VulkanSDK/1.4.335.0/Include"
+
+include "Flux/vendor/GLFW"
+
 project "Flux"
 	location "Flux"
 	kind "SharedLib"
@@ -29,7 +35,15 @@ project "Flux"
 
 	includedirs
 	{
-		"%{prj.name}/vendor/spdlog/include"
+		"%{prj.name}/src",
+		"%{prj.name}/vendor/spdlog/include",
+		"%{IncludeDir.GLFW}",
+        "%{IncludeDir.Vulkan}"
+	}
+
+	links
+	{
+		"GLFW"
 	}
 
 	filter "system:windows"
