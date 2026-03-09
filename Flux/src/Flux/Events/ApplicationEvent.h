@@ -3,6 +3,8 @@
 
 #include "Event.h"
 
+#include <sstream>
+
 namespace Flux {
 
 	class FLUX_API WindowResizeEvent final : public Event
