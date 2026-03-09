@@ -65,14 +65,17 @@ project "Flux"
 
 	filter "configurations:Debug"
 		defines { "FL_DEBUG" }
+		buildoptions "/MDd"
 		symbols "On"
 
 	filter "configurations:Release"
 		defines { "FL_RELEASE" }
+		buildoptions "/MD"
 		optimize "On"
 
 	filter "configurations:Dist"
 		defines { "FL_DIST" }
+		buildoptions "/MD"
 		optimize "On"
 
 project "Sandbox"
@@ -114,12 +117,15 @@ project "Sandbox"
 
 	filter "configurations:Debug"
 		defines { "FL_DEBUG" }
+		buildoptions "/MDd"
 		symbols "On"
 
 	filter "configurations:Release"
 		defines { "FL_RELEASE" }
+		buildoptions "/MD"
 		optimize "On"
 
 	filter "configurations:Dist"
 		defines { "FL_DIST" }
+		buildoptions "/MD"
 		optimize "On"
