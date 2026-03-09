@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-
+#include "Flux/Log.h"
 
 
 #ifdef FL_PLATFORM_WINDOWS
