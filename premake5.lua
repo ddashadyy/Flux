@@ -1,5 +1,6 @@
 workspace "Flux" 
 	architecture "x64"
+	startproject "Sandbox"
 
 	configurations 
 	{
@@ -13,8 +14,12 @@ outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 IncludeDir = {}
 IncludeDir["GLFW"] = "Flux/vendor/GLFW/include"
 IncludeDir["Vulkan"] = "D:/VulkanSDK/1.4.335.0/Include"
+IncludeDir["ImGui"] = "Flux/vendor/imgui"
 
 include "Flux/vendor/GLFW"
+include "Flux/vendor/imgui"
+
+-- startproject "Sandbox"
 
 project "Flux"
 	location "Flux"
@@ -38,12 +43,14 @@ project "Flux"
 		"%{prj.name}/src",
 		"%{prj.name}/vendor/spdlog/include",
 		"%{IncludeDir.GLFW}",
-        "%{IncludeDir.Vulkan}"
+        "%{IncludeDir.Vulkan}",
+		"%{IncludeDir.ImGui}"
 	}
 
 	links
 	{
-		"GLFW"
+		"GLFW",
+		"ImGui"
 	}
 
 	filter "system:windows"

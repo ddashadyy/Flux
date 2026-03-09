@@ -25,8 +25,8 @@ class Sandbox : public Flux::Application
 public:
 	Sandbox()
 	{
-
 		PushLayer(new ExampleLayer());
+		PushOverlay(new Flux::ImGuiLayer());
 	}
 
 	~Sandbox()

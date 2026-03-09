@@ -4,3 +4,6 @@
 [submodule "Flux/vendor/GLFW"]
 	path = Flux/vendor/GLFW
 	url = https://github.com/ddashadyy/glfw
+[submodule "Flux/vendor/imgui"]
+	path = Flux/vendor/imgui
+	url = https://github.com/ddashadyy/imgui

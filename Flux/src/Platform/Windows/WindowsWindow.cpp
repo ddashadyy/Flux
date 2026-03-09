@@ -8,11 +8,13 @@
 
 namespace Flux {
 
-	static bool s_GLFWInitialized = false;
+	namespace {
+		bool s_GLFWInitialized = false;
 
-	static void GLFWErrorCallback(int error, const char* description)
-	{
-		FL_CORE_ERROR("GLFW Error ({0}): {1}", error, description);
+		void GLFWErrorCallback(int error, const char* description)
+		{
+			FL_CORE_ERROR("GLFW Error ({0}): {1}", error, description);
+		}
 	}
 
 	Window* Window::Create(const WindowProps& props)
@@ -99,6 +101,14 @@ namespace Flux {
 					break;
 				}
 			}
+		});
+
+		glfwSetCharCallback(m_Window, [](GLFWwindow* window, unsigned int keycode)
+		{
+			WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
+
+			KeyTypedEvent event(keycode);
+			data.EventCallback(event);
 		});
 
 		glfwSetMouseButtonCallback(m_Window, [](GLFWwindow* window, int button, int action, int mods)

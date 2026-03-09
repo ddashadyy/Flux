@@ -6,8 +6,6 @@
 #include "Flux/Events/ApplicationEvent.h"
 #include "Flux/LayerStack.h"
 
-#include "Window.h"
-
 namespace Flux {
 
 	class FLUX_API Application
@@ -22,6 +20,10 @@ namespace Flux {
 
 		void PushLayer(Layer* layer);
 		void PushOverlay(Layer* layer);
+
+		inline Window& GetWindow() { return *m_Window; }
+		inline static Application& Get() { return *s_Instance; }
+
 	private:
 		bool OnWindowClose(WindowCloseEvent& e);
 
@@ -29,6 +31,9 @@ namespace Flux {
 		std::unique_ptr<Window> m_Window;
 		bool m_Running = true;
 		LayerStack m_LayerStack;
+
+	private:
+		static Application* s_Instance;
 	};
 
 	// To be defined in CLIENT
