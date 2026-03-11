@@ -6,6 +6,8 @@
 
 #include <GLFW/glfw3.h>
 
+#include "Input.h"
+
 namespace Flux {
 
 	Application* Application::s_Instance = nullptr;
@@ -49,6 +51,9 @@ namespace Flux {
 	{
 		while (m_Running)
 		{
+
+			auto [x, y] = Input::GetMousePosition();
+			FL_CORE_TRACE("{0}, {1}", x, y);
 			m_Window->OnUpdate();
 		}
 	}
