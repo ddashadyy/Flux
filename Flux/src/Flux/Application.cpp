@@ -14,6 +14,7 @@ namespace Flux {
 
 	Application::Application()
 	{
+		FL_CORE_ASSERT(!s_Instance, "Application already exists!");
 		s_Instance = this;
 
 		m_Window = std::unique_ptr<Window>(Window::Create());
@@ -39,7 +40,7 @@ namespace Flux {
 		EventDispatcher dispatcher(e);
 		dispatcher.Dispatch<WindowCloseEvent>(FL_BIND_EVENT_FN(Application::OnWindowClose));
 
-		for (auto it = m_LayerStack.End(); it != m_LayerStack.Begin(); )
+		for (auto it = m_LayerStack.end(); it != m_LayerStack.begin(); )
 		{
 			(*--it)->OnEvent(e);
 			if (e.Handled)
@@ -52,8 +53,12 @@ namespace Flux {
 		while (m_Running)
 		{
 
+			for (auto layer : m_LayerStack)
+				layer->OnUpdate();
+
+
 			auto [x, y] = Input::GetMousePosition();
-			FL_CORE_TRACE("{0}, {1}", x, y);
+			//FL_CORE_TRACE("{0}, {1}", x, y);
 			m_Window->OnUpdate();
 		}
 	}

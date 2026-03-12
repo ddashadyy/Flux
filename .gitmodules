@@ -7,3 +7,6 @@
 [submodule "Flux/vendor/imgui"]
 	path = Flux/vendor/imgui
 	url = https://github.com/ddashadyy/imgui
+[submodule "Flux/vendor/glm"]
+	path = Flux/vendor/glm
+	url = https://github.com/g-truc/glm

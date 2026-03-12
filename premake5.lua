@@ -15,6 +15,7 @@ IncludeDir = {}
 IncludeDir["GLFW"] = "Flux/vendor/GLFW/include"
 IncludeDir["Vulkan"] = "D:/VulkanSDK/1.4.335.0/Include"
 IncludeDir["ImGui"] = "Flux/vendor/imgui"
+IncludeDir["glm"] = "Flux/vendor/glm"
 
 include "Flux/vendor/GLFW"
 include "Flux/vendor/imgui"
@@ -35,7 +36,9 @@ project "Flux"
 	files
 	{
 		"%{prj.name}/src/**.h",
-		"%{prj.name}/src/**.cpp"
+		"%{prj.name}/src/**.cpp",
+		"%{prj.name}/vendor/glm/glm/**.hpp",
+		"%{prj.name}/vendor/glm/glm/**.inl"
 	}
 
 	includedirs
@@ -43,8 +46,9 @@ project "Flux"
 		"%{prj.name}/src",
 		"%{prj.name}/vendor/spdlog/include",
 		"%{IncludeDir.GLFW}",
-        "%{IncludeDir.Vulkan}",
-		"%{IncludeDir.ImGui}"
+		"%{IncludeDir.Vulkan}",
+		"%{IncludeDir.ImGui}",
+		"%{IncludeDir.glm}"
 	}
 
 	links
@@ -103,7 +107,8 @@ project "Sandbox"
 	includedirs
 	{
 		"Flux/src",
-		"Flux/vendor/spdlog/include"
+		"Flux/vendor/spdlog/include",
+		"%{IncludeDir.glm}"
 	}
 
 	links 
