@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Flux/Window.h"
+#include "Flux/Renderer/GraphicsContext.h"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -15,14 +16,15 @@ namespace Flux {
 
 		void OnUpdate() override;
 
-		inline unsigned int GetWidth() const override { return m_Data.Width; }
+		inline unsigned int GetWidth()  const override { return m_Data.Width; }
 		inline unsigned int GetHeight() const override { return m_Data.Height; }
-		inline virtual void* GetNativeWindow() const override { return m_Window; }
+		inline void* GetNativeWindow()  const override { return m_Window; }
 
-		// Window attributes
 		inline void SetEventCallback(const EventCallbackFn& callback) override { m_Data.EventCallback = callback; }
 		void SetVSync(bool enabled) override;
 		bool IsVSync() const override;
+
+		inline GraphicsContext& GetContext() const override { return *m_Context; }
 
 	private:
 		virtual void Init(const WindowProps& props);
@@ -30,6 +32,7 @@ namespace Flux {
 
 	private:
 		GLFWwindow* m_Window;
+		Scope<GraphicsContext> m_Context;
 
 		struct WindowData
 		{
