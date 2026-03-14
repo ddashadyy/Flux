@@ -9,6 +9,7 @@ namespace Flux {
 	VulkanContext::VulkanContext(GLFWwindow* window)
 		: m_Window(window)
 	{
+		FL_CORE_ASSERT(m_Window, "Window handle is null")
 	}
 
 	VulkanContext::~VulkanContext()
