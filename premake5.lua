@@ -29,8 +29,10 @@ include "Flux/vendor/vk-bootstrap"
 
 project "Flux"
 	location "Flux"
-	kind "SharedLib"
+	kind "StaticLib"
 	language "C++"
+	cppdialect "C++20"
+	staticruntime "on"
 
 	targetdir ("bin/" .. outputdir .. "/%{prj.name}")
 	objdir ("bin-int/" .. outputdir .. "/%{prj.name}")
@@ -66,8 +68,6 @@ project "Flux"
 	}
 
 	filter "system:windows"
-		cppdialect "C++20"
-		staticruntime "On"
 		systemversion "latest"
 		buildoptions { "/utf-8" }  
 
@@ -77,31 +77,27 @@ project "Flux"
 			"FL_BUILD_DLL"
 		}
 
-		postbuildcommands 
-		{
-			("{COPY} %{cfg.buildtarget.relpath} ../bin/" .. outputdir .. "/Sandbox")
-		}
-
 	filter "configurations:Debug"
 		defines { "FL_DEBUG", "FL_ENABLE_ASSERTS" }
-		buildoptions "/MDd"
-		symbols "On"
+		runtime "Debug"
+		symbols "on"
 
 	filter "configurations:Release"
 		defines { "FL_RELEASE" }
-		buildoptions "/MD"
-		optimize "On"
+		runtime "Release"
+		optimize "on"
 
 	filter "configurations:Dist"
 		defines { "FL_DIST" }
-		buildoptions "/MD"
-		optimize "On"
+		runtime "Release"
+		optimize "on"
 
 project "Sandbox"
 	location "Sandbox"
 	kind "ConsoleApp"
-
 	language "C++"
+	cppdialect "C++20"
+	staticruntime "on"
 
 	targetdir ("bin/" .. outputdir .. "/%{prj.name}")
 	objdir ("bin-int/" .. outputdir .. "/%{prj.name}")
@@ -115,7 +111,8 @@ project "Sandbox"
 	includedirs
 	{
 		"Flux/src",
-		"Flux/vendor/spdlog/include",
+		"Flux/vendor",
+		"%{IncludeDir.spdlog}",
 		"%{IncludeDir.glm}"
 	}
 
@@ -125,27 +122,21 @@ project "Sandbox"
 	}
 
 	filter "system:windows"
-		cppdialect "C++20"
-		staticruntime "On"
 		systemversion "latest"
 		buildoptions { "/utf-8" }  
-
-		defines 
-		{
-			"FL_PLATFORM_WINDOWS"
-		}
+		defines { "FL_PLATFORM_WINDOWS" }
 
 	filter "configurations:Debug"
 		defines { "FL_DEBUG" }
-		buildoptions "/MDd"
-		symbols "On"
+		runtime "Debug"
+		symbols "on"
 
 	filter "configurations:Release"
 		defines { "FL_RELEASE" }
-		buildoptions "/MD"
-		optimize "On"
+		runtime "Release"
+		optimize "on"
 
 	filter "configurations:Dist"
 		defines { "FL_DIST" }
-		buildoptions "/MD"
-		optimize "On"
+		runtime "Release"
+		optimize "on"
