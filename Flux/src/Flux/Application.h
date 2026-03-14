@@ -6,6 +6,8 @@
 #include "Flux/Events/ApplicationEvent.h"
 #include "Flux/LayerStack.h"
 
+#include "Flux/ImGui/ImGuiLayer.h"
+
 namespace Flux {
 
 	class FLUX_API Application
@@ -32,6 +34,8 @@ namespace Flux {
 
 	private:
 		Scope<Window> m_Window;
+		ImGuiLayer* m_ImGuiLayer = nullptr;
+
 		LayerStack m_LayerStack;
 		bool m_Running = true;
 
