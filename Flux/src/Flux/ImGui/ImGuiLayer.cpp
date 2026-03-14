@@ -28,11 +28,25 @@ namespace Flux {
 	{
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
+		ImGuiIO& io = ImGui::GetIO(); (void)io;
+		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
+		//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
+		io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+		//io.ConfigFlags |= ImGuiConfigFlags_ViewportsNoTaskBarIcons;
+		//io.ConfigFlags |= ImGuiConfigFlags_ViewportsNoMerge;
 
-		ImGuiIO& io = ImGui::GetIO();
-		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-
+		
 		ImGui::StyleColorsDark();
+		//ImGui::StyleColorsClassic();
+
+
+		ImGuiStyle& style = ImGui::GetStyle();
+		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+		{
+			style.WindowRounding = 0.0f;
+			style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+		}
 
 		Application& app = Application::Get();
 		auto& window = app.GetWindow();
@@ -41,7 +55,7 @@ namespace Flux {
 
 		VulkanContext& context = static_cast<VulkanContext&>(
 			static_cast<WindowsWindow&>(window).GetContext()
-			);
+		);
 
 		ImGui_ImplGlfw_InitForVulkan(glfwWindow, true);
 
@@ -76,40 +90,41 @@ namespace Flux {
 		ImGui::DestroyContext();
 	}
 
-	void ImGuiLayer::OnUpdate()
+	void ImGuiLayer::OnImGuiRender()
+	{
+		static bool show = true;
+		ImGui::ShowDemoWindow(&show);
+
+	}
+
+	void ImGuiLayer::Begin()
 	{
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
+	}
 
-		static bool show = true;
-		ImGui::ShowDemoWindow(&show);
-
-		// Своё окно
-		ImGui::Begin("Flux Engine");
-		ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-		ImGui::Separator();
-
-		static float clearColor[3] = { 0.1f, 0.1f, 0.1f };
-		ImGui::ColorEdit3("Clear Color", clearColor);
-
-		if (ImGui::Button("Click me!"))
-			FL_CORE_INFO("Button clicked!");
-
-		ImGui::End();
-
-		ImGui::Render();
-
+	void ImGuiLayer::End()
+	{
+		ImGuiIO& io = ImGui::GetIO();
 		Application& app = Application::Get();
+		io.DisplaySize = ImVec2(static_cast<float>(app.GetWindow().GetWidth()), static_cast<float>(app.GetWindow().GetHeight()));
+
 		VulkanContext& context = static_cast<VulkanContext&>(
 			static_cast<WindowsWindow&>(app.GetWindow()).GetContext()
 		);
 
+		ImGui::Render();
 		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), context.GetCurrentCommandBuffer());
-	}
 
-	void ImGuiLayer::OnEvent(Event& event)
-	{
+		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+		{
+			GLFWwindow* backupCurrentContext = glfwGetCurrentContext();
+			ImGui::UpdatePlatformWindows();
+			ImGui::RenderPlatformWindowsDefault();
+			glfwMakeContextCurrent(backupCurrentContext);
+		}
+
 	}
 
 }
