@@ -11,16 +11,21 @@ workspace "Flux"
 
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
+LibDir = {}
+LibDir["Vulkan"] = "D:/VulkanSDK/1.4.335.0/Lib"
+
 IncludeDir = {}
+IncludeDir["spdlog"]  = "Flux/vendor/spdlog/include"
 IncludeDir["GLFW"] = "Flux/vendor/GLFW/include"
 IncludeDir["Vulkan"] = "D:/VulkanSDK/1.4.335.0/Include"
+IncludeDir["vkbootstrap"] = "Flux/vendor/vk-bootstrap/src"
 IncludeDir["ImGui"] = "Flux/vendor/imgui"
 IncludeDir["glm"] = "Flux/vendor/glm"
 
 include "Flux/vendor/GLFW"
 include "Flux/vendor/imgui"
+include "Flux/vendor/vk-bootstrap"
 
--- startproject "Sandbox"
 
 project "Flux"
 	location "Flux"
@@ -44,9 +49,10 @@ project "Flux"
 	includedirs
 	{
 		"%{prj.name}/src",
-		"%{prj.name}/vendor/spdlog/include",
+		"%{IncludeDir.spdlog}",
 		"%{IncludeDir.GLFW}",
 		"%{IncludeDir.Vulkan}",
+		"%{IncludeDir.vkbootstrap}",
 		"%{IncludeDir.ImGui}",
 		"%{IncludeDir.glm}"
 	}
@@ -54,7 +60,9 @@ project "Flux"
 	links
 	{
 		"GLFW",
-		"ImGui"
+		"ImGui",
+		"vk-bootstrap",
+		"%{LibDir.Vulkan}/vulkan-1.lib"
 	}
 
 	filter "system:windows"
@@ -75,7 +83,7 @@ project "Flux"
 		}
 
 	filter "configurations:Debug"
-		defines { "FL_DEBUG" }
+		defines { "FL_DEBUG", "FL_ENABLE_ASSERTS" }
 		buildoptions "/MDd"
 		symbols "On"
 
