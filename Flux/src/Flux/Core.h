@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 
 #ifdef FL_PLATFORM_WINDOWS
 	#ifdef FL_BUILD_DLL
@@ -24,3 +25,31 @@
 //#define FL_BIND_EVENT_FN(fn) std::bind(&fn, this, std::placeholders::_1)
 #define FL_BIND_EVENT_FN(fn) [this](auto&&... args) -> decltype(auto) { return this->fn(std::forward<decltype(args)>(args)...); }
 
+#define FL_NON_COPYABLE(ClassName) \
+    ClassName(const ClassName&) = delete; \
+    ClassName& operator=(const ClassName&) = delete; \
+    ClassName(ClassName&&) = delete; \
+    ClassName& operator=(ClassName&&) = delete;
+
+
+namespace Flux {
+
+	template <typename T>
+	using Scope = std::unique_ptr<T>;
+
+	template <typename T, typename ...Args >
+	constexpr Scope<T> CreateScope(Args&&... args)
+	{
+		return std::make_unique<T>(std::forward<Args>(args)...);
+	}
+	
+	template <typename T>
+	using Ref = std::shared_ptr<T>;
+
+	template <typename T, typename ...Args >
+	constexpr Ref<T> CreateRef(Args&&... args)
+	{
+		return std::make_shared<T>(std::forward<Args>(args)...);
+	}
+
+}
