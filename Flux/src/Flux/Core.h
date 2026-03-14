@@ -3,11 +3,15 @@
 #include <memory>
 
 #ifdef FL_PLATFORM_WINDOWS
-	#ifdef FL_BUILD_DLL
-		#define FLUX_API __declspec(dllexport)
-	#else
-		#define FLUX_API __declspec(dllimport)
-	#endif 
+	#if FL_DYNAMIC_LINK
+		#ifdef FL_BUILD_DLL
+			#define FLUX_API __declspec(dllexport)
+		#else
+			#define FLUX_API __declspec(dllimport)
+		#endif 
+	#else 
+		#define FLUX_API
+	#endif
 #else 
 	#error Flux only supports Windows!
 #endif 
