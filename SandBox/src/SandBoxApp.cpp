@@ -1,5 +1,7 @@
 #include <Flux.h>
 
+#include "imgui/imgui.h"
+
 class ExampleLayer : public Flux::Layer
 {
 public:
@@ -15,9 +17,15 @@ public:
 			FL_TRACE("Tab key is pressed");
 	}
 
+	virtual void OnImGuiRender() override
+	{
+		ImGui::Begin("Test");
+		ImGui::Text("Hello World");
+		ImGui::End();
+	}
+
 	void OnEvent(Flux::Event& event) override
 	{
-		//FL_TRACE("{0}", event);  // выводи все события
 
 		if (event.GetEventType() == Flux::EventType::KeyPressed)
 		{
@@ -33,17 +41,15 @@ class Sandbox : public Flux::Application
 public:
 	Sandbox()
 	{
-		m_ImGuiLayer = new Flux::ImGuiLayer();
-		PushOverlay(m_ImGuiLayer);
+		//PushLayer(new ExampleLayer());
+		//PushOverlay(new Flux::ImGuiLayer());
 	}
 
 	~Sandbox()
 	{
-		PopOverlay(m_ImGuiLayer);
 	}
 private:
-	Flux::ImGuiLayer* m_ImGuiLayer = nullptr;
-
+	
 };
 
 Flux::Application* Flux::CreateApplication()
