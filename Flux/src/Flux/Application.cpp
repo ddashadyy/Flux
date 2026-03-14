@@ -35,6 +35,16 @@ namespace Flux {
 		m_LayerStack.PushOverlay(layer);
 	}
 
+	void Application::PopLayer(Layer* layer)
+	{
+		m_LayerStack.PopLayer(layer);
+	}
+
+	void Application::PopOverlay(Layer* layer)
+	{
+		m_LayerStack.PopOverlay(layer);
+	}
+
 	void Application::OnEvent(Event& e)
 	{
 		EventDispatcher dispatcher(e);
@@ -50,16 +60,16 @@ namespace Flux {
 
 	void Application::Run()
 	{
-		while (m_Running)
+		while (m_Running) 
 		{
-
-			for (auto layer : m_LayerStack)
+			m_Window->GetContext().BeginFrame();
+			
+			for (Layer* layer : m_LayerStack)
 				layer->OnUpdate();
 
-
-			auto [x, y] = Input::GetMousePosition();
-			//FL_CORE_TRACE("{0}, {1}", x, y);
-			m_Window->OnUpdate();
+			m_Window->GetContext().EndFrame();
+			
+			m_Window->OnUpdate(); 
 		}
 	}
 

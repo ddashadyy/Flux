@@ -21,6 +21,9 @@ namespace Flux {
 		void PushLayer(Layer* layer);
 		void PushOverlay(Layer* layer);
 
+		void PopLayer(Layer* layer);
+		void PopOverlay(Layer* layer);
+
 		inline Window& GetWindow() { return *m_Window; }
 		inline static Application& Get() { return *s_Instance; }
 
@@ -28,9 +31,9 @@ namespace Flux {
 		bool OnWindowClose(WindowCloseEvent& e);
 
 	private:
-		std::unique_ptr<Window> m_Window;
-		bool m_Running = true;
+		Scope<Window> m_Window;
 		LayerStack m_LayerStack;
+		bool m_Running = true;
 
 	private:
 		static Application* s_Instance;
