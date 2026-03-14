@@ -1,4 +1,3 @@
-// src/Flux/Renderer/RendererAPI.cpp
 #include "flpch.h"
 #include "RendererAPI.h"
 
