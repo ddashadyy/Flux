@@ -18,6 +18,8 @@ namespace Flux {
 	class VulkanContext : public GraphicsContext
 	{
 	public:
+		
+
 		VulkanContext(GLFWwindow* window);
 		~VulkanContext();
 
@@ -38,6 +40,9 @@ namespace Flux {
 		inline uint32_t          GetMinImageCount()   const { return 2; }
 		inline VkCommandBuffer   GetCurrentCommandBuffer() const { return m_CommandBuffers[m_CurrentFrame]; }
 		inline uint32_t			 GetGraphicsQueueFamily() const { return m_Device.GetGraphicsQueueFamily(); }
+
+		inline static VulkanContext& Get() { return *s_Instance; }
+		inline bool   IsFrameStarted() const { return m_FrameStarted; }
 
 	private:
 		void CreateDescriptorPool();
@@ -66,6 +71,9 @@ namespace Flux {
 		uint32_t m_CurrentImageIndex = 0;
 
 		bool m_FrameStarted = false;
+
+	private:
+		static VulkanContext* s_Instance;
 	};
 
 }
