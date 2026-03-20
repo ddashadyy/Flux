@@ -18,8 +18,6 @@ namespace Flux {
 	class VulkanContext : public GraphicsContext
 	{
 	public:
-		
-
 		VulkanContext(GLFWwindow* window);
 		~VulkanContext();
 
