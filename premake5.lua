@@ -113,7 +113,11 @@ project "Sandbox"
 		"Flux/src",
 		"Flux/vendor",
 		"%{IncludeDir.spdlog}",
-		"%{IncludeDir.glm}"
+		"%{IncludeDir.glm}",
+		"%{IncludeDir.GLFW}",
+		"%{IncludeDir.Vulkan}",
+		"%{IncludeDir.vkbootstrap}",
+		"%{IncludeDir.ImGui}"
 	}
 
 	links 
