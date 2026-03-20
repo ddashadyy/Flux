@@ -18,13 +18,15 @@ namespace Flux {
 		int width, height;
 		glfwGetFramebufferSize(window, &width, &height);
 
-		vkb::SwapchainBuilder builder(device);
+		vkb::SwapchainBuilder builder(*m_Device);
 
 		auto result = builder
 			.set_desired_format({ VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
-			.set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)   
+			.set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
 			.set_desired_extent(width, height)
 			.add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+			.set_composite_alpha_flags(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
+			.set_old_swapchain(m_Swapchain)
 			.build();
 
 		FL_CORE_ASSERT(result.has_value(), "Failed to create swapchain!");
@@ -124,6 +126,7 @@ namespace Flux {
 			.set_desired_format({ VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
 			.set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
 			.set_desired_extent(width, height)
+			.set_old_swapchain(m_Swapchain)
 			.build();
 
 		FL_CORE_ASSERT(result.has_value(), "Failed to recreate swapchain!");
