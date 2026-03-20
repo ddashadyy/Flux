@@ -54,33 +54,22 @@ namespace Flux {
 	{
 		EventDispatcher dispatcher(e);
 		dispatcher.Dispatch<WindowCloseEvent>(FL_BIND_EVENT_FN(Application::OnWindowClose));
-
+		//dispatcher.Dispatch<WindowResizeEvent>(FL_BIND_EVENT_FN(Application::OnWindowResize));
+		//dispatcher.Dispatch<AppRenderEvent>(FL_BIND_EVENT_FN(Application::OnAppRender));
+	
 		for (auto it = m_LayerStack.end(); it != m_LayerStack.begin(); )
 		{
 			(*--it)->OnEvent(e);
-			if (e.Handled)
-				break;
+			if (e.Handled) break;
 		}
 	}
 
 	void Application::Run()
 	{
-		while (m_Running) 
+		while (m_Running)
 		{
-			m_Window->GetContext().BeginFrame();
-			
-			for (Layer* layer : m_LayerStack)
-				layer->OnUpdate();
-
-			m_ImGuiLayer->Begin();
-			for (Layer* layer : m_LayerStack)
-				layer->OnImGuiRender();
-			m_ImGuiLayer->End();
-
-
-			m_Window->GetContext().EndFrame();
-			
-			m_Window->OnUpdate(); 
+			RenderFrame();
+			m_Window->OnUpdate();
 		}
 	}
 
@@ -88,6 +77,31 @@ namespace Flux {
 	{
 		m_Running = false;
 		return true;
+	}
+
+	bool Application::OnWindowResize(WindowResizeEvent& e)
+	{
+		return false;
+	}
+
+	bool Application::OnAppRender(AppRenderEvent& e)
+	{
+		return false;
+	}
+
+	void Application::RenderFrame()
+	{
+		m_Window->GetContext().BeginFrame();
+
+		for (Layer* layer : m_LayerStack)
+			layer->OnUpdate();
+
+		m_ImGuiLayer->Begin();
+		for (Layer* layer : m_LayerStack)
+			layer->OnImGuiRender();
+		m_ImGuiLayer->End();
+
+		m_Window->GetContext().EndFrame();
 	}
 
 }
