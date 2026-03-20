@@ -137,6 +137,13 @@ namespace Flux {
 			MouseMovedEvent event(static_cast<float>(xpos), static_cast<float>(ypos));
 			data.EventCallback(event);
 		});
+
+		glfwSetWindowRefreshCallback(m_Window, [](GLFWwindow* window) 
+		{
+			WindowData& data = *static_cast<WindowData*>(glfwGetWindowUserPointer(window));
+			AppRenderEvent event;
+			data.EventCallback(event);
+		});
 	}
 
 	void WindowsWindow::Shutdown()
@@ -146,9 +153,8 @@ namespace Flux {
 
 	void WindowsWindow::OnUpdate()
 	{
+		glfwWaitEventsTimeout(0.001);
 		glfwPollEvents();
-		m_Context->BeginFrame();
-		m_Context->EndFrame();
 	}
 
 	void WindowsWindow::SetVSync(bool enabled)
