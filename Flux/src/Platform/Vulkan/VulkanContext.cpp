@@ -6,10 +6,13 @@
 
 namespace Flux {
 
+	VulkanContext* VulkanContext::s_Instance = nullptr;
+
 	VulkanContext::VulkanContext(GLFWwindow* window)
 		: m_Window(window)
 	{
-		FL_CORE_ASSERT(m_Window, "Window handle is null")
+		FL_CORE_ASSERT(m_Window, "Window handle is null");
+		s_Instance = this;
 	}
 
 	VulkanContext::~VulkanContext()
@@ -142,16 +145,15 @@ namespace Flux {
 			&m_CurrentImageIndex
 		);
 
-		if (result == VK_ERROR_OUT_OF_DATE_KHR) 
+		if (result == VK_ERROR_OUT_OF_DATE_KHR)
 		{
 			m_Swapchain.Recreate(m_Window);
 			m_FrameStarted = false;
-			return;
+			return; 
 		}
-
-		else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) 
+		else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
 			FL_CORE_ASSERT(false, "Failed to acquire swapchain image!");
-		
+
 		vkResetFences(m_Device.GetDevice(), 1, &m_InFlightFences[m_CurrentFrame]);
 
 		VkCommandBuffer cmd = m_CommandBuffers[m_CurrentFrame];
@@ -161,7 +163,7 @@ namespace Flux {
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 		vkBeginCommandBuffer(cmd, &beginInfo);
 
-		VkClearValue clearColor = { {{ 0.1f, 0.1f, 0.1f, 1.0f }} };
+		VkClearValue clearColor = { {1.0, 0.0, 0.0, 1.0} };
 		VkRenderPassBeginInfo rpInfo{};
 		rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		rpInfo.renderPass = m_Swapchain.GetRenderPass();
@@ -173,13 +175,32 @@ namespace Flux {
 
 		vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+		VkExtent2D extent = m_Swapchain.GetExtent();
+
+		VkViewport viewport{};
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewport.width = (float)extent.width;
+		viewport.height = (float)extent.height;
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+		VkRect2D scissor{};
+		scissor.offset = { 0, 0 };
+		scissor.extent = extent;
+		vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+		float blendConstants[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+		vkCmdSetBlendConstants(cmd, blendConstants);
+
 		m_FrameStarted = true;
 	}
 
 	void VulkanContext::EndFrame()
 	{
 		if (!m_FrameStarted)
-			return;
+			return;		
 		m_FrameStarted = false;
 
 		VkCommandBuffer cmd = m_CommandBuffers[m_CurrentFrame];
