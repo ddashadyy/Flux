@@ -14,7 +14,7 @@ namespace Flux {
 		case RendererAPI::API::Vulkan:
 			return CreateScope<VulkanContext>(static_cast<GLFWwindow*>(window));
 		case RendererAPI::API::None:
-			FL_CORE_ASSERT(false, "RendererAPI::None is not supported!");
+			FL_CORE_ASSERT(false, "RendererAPI::None is currently not supported!");
 			return nullptr;
 		}
 
