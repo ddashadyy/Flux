@@ -31,6 +31,10 @@ namespace Flux {
 
 	private:
 		bool OnWindowClose(WindowCloseEvent& e);
+		bool OnWindowResize(WindowResizeEvent& e);
+		bool OnAppRender(AppRenderEvent& e);
+
+		void RenderFrame();
 
 	private:
 		Scope<Window> m_Window;
