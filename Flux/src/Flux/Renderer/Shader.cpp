@@ -9,12 +9,11 @@ namespace Flux {
 	{
 		switch (RendererAPI::GetAPI())
 		{
-		case RendererAPI::API::Vulkan: 
-			return Flux::CreateRef<VulkanShader>(filePath);
-				
-		case RendererAPI::API::None:
-			FL_CORE_ASSERT(false, "RendererAPI::None is currently not supported!");
-			return nullptr;	
+		case RendererAPI::API::Vulkan: return Flux::CreateRef<VulkanShader>(filePath);
+		case RendererAPI::API::None:   FL_CORE_ASSERT(false, "RendererAPI::None is currently not supported!"); return nullptr;	
 		}
+
+		FL_CORE_ASSERT(false, "RendererAPI::None is currently not supported!");
+		return nullptr;
 	}
 }

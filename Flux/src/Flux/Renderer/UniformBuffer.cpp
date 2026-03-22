@@ -1,15 +1,15 @@
 #include "flpch.h"
-#include "GraphicsContext.h"
+#include "UniformBuffer.h"
 #include "RendererAPI.h"
-#include "Platform/Vulkan/VulkanContext.h"
+#include "Platform/Vulkan/VulkanUniformBuffer.h"
 
 namespace Flux {
 
-	Scope<GraphicsContext> GraphicsContext::Create(void* window)
+	Ref<UniformBuffer> UniformBuffer::Create(uint32_t size)
 	{
 		switch (RendererAPI::GetAPI())
 		{
-		case RendererAPI::API::Vulkan: return CreateScope<VulkanContext>(static_cast<GLFWwindow*>(window));
+		case RendererAPI::API::Vulkan: return Flux::CreateRef<VulkanUniformBuffer>(size);
 		case RendererAPI::API::None:   FL_CORE_ASSERT(false, "RendererAPI::None is currently not supported!"); return nullptr;
 		}
 
