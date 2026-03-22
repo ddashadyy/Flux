@@ -2,9 +2,9 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <vk_mem_alloc.h>
 
 #include "Flux/Core.h"
-
 #include "Flux/Renderer/GraphicsContext.h"
 
 #include "VulkanInstance.h"
@@ -42,6 +42,7 @@ namespace Flux {
 		inline static VulkanContext& Get() { return *s_Instance; }
 		inline bool   IsFrameStarted() const { return m_FrameStarted; }
 
+		inline VmaAllocator GetAllocator() const { return m_Allocator; }
 	private:
 		void CreateDescriptorPool();
 		void CreateCommandPool();
@@ -58,6 +59,8 @@ namespace Flux {
 		VkDescriptorPool             m_DescriptorPool = VK_NULL_HANDLE;
 		VkCommandPool                m_CommandPool = VK_NULL_HANDLE;
 		std::vector<VkCommandBuffer> m_CommandBuffers;
+
+		VmaAllocator m_Allocator = VK_NULL_HANDLE;
 
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 

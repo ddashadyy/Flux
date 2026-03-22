@@ -1,8 +1,7 @@
 #include "flpch.h"
 #include "VulkanContext.h"
+#include "Flux/Renderer/RendererAPI.h"
 
-#include "Flux/Log.h"
-#include "Flux/Core.h"
 
 namespace Flux {
 
@@ -18,6 +17,8 @@ namespace Flux {
 	VulkanContext::~VulkanContext()
 	{
 		vkDeviceWaitIdle(m_Device.GetDevice());
+
+		vmaDestroyAllocator(m_Allocator);
 
 		for (size_t i = 0; i < m_ImageAvailableSemaphores.size(); i++)
 		{
@@ -36,10 +37,24 @@ namespace Flux {
 
 	void VulkanContext::Init()
 	{
+		FL_CORE_INFO("Renderer API: {0}", RendererAPI::GetAPIName());
+
 		m_Instance.Init("Flux");
 		m_Instance.CreateSurface(m_Window);
 
 		m_Device.Init(m_Instance.GetVkbInstance(), m_Instance.GetSurface());
+
+		VmaAllocatorCreateInfo allocatorInfo{};
+		allocatorInfo.flags = VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+		allocatorInfo.instance = m_Instance.GetInstance();
+		allocatorInfo.physicalDevice = m_Device.GetPhysicalDevice();
+		allocatorInfo.device = m_Device.GetDevice();
+		allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+
+		FL_CORE_ASSERT(
+			vmaCreateAllocator(&allocatorInfo, &m_Allocator) == VK_SUCCESS,
+			"Failed to create VMA allocator!"
+		);
 
 		m_Swapchain.Init(m_Device.GetVkbDevice(), m_Instance.GetSurface(), m_Window);
 
@@ -49,6 +64,7 @@ namespace Flux {
 		CreateSyncObjects();
 
 		FL_CORE_INFO("Vulkan context ready");
+
 	}
 
 	void VulkanContext::CreateDescriptorPool()
@@ -163,7 +179,7 @@ namespace Flux {
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 		vkBeginCommandBuffer(cmd, &beginInfo);
 
-		VkClearValue clearColor = { {1.0, 0.0, 0.0, 1.0} };
+		VkClearValue clearColor = { {0.0, 0.0, 0.0, 1.0} };
 		VkRenderPassBeginInfo rpInfo{};
 		rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		rpInfo.renderPass = m_Swapchain.GetRenderPass();
