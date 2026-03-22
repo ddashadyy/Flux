@@ -14,13 +14,19 @@
 #include "Flux/ImGui/ImGuiLayer.h"
 
 
+// ---Geometry-------------
+//#include "Flux/Geometry/Vertex.h"
+// ------------------------
+
 // ---Renderer-------------
 #include "Flux/Renderer/Shader.h"
 #include "Flux/Renderer/Pipeline.h"
 #include "Flux/Renderer/GraphicsContext.h"
+#include "Flux/Renderer/RendererAPI.h"
 
 #include "Platform/Vulkan/VulkanContext.h"
 #include "Platform/Vulkan/VulkanPipeline.h"
+#include "Platform/Vulkan/VulkanBuffer.h"
 // ------------------------
 
 // ---Entry Point-----------
