@@ -15,7 +15,7 @@
 
 
 // ---Geometry-------------
-//#include "Flux/Geometry/Vertex.h"
+#include "Flux/Geometry/Vertex.h"
 // ------------------------
 
 // ---Renderer-------------
