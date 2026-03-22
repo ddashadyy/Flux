@@ -13,3 +13,6 @@
 [submodule "Flux/vendor/vk-bootstrap"]
 	path = Flux/vendor/vk-bootstrap
 	url = https://github.com/ddashadyy/vk-bootstrap
+[submodule "Flux/vendor/vma"]
+	path = Flux/vendor/vma
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
