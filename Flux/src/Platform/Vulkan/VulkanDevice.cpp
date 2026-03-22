@@ -1,9 +1,6 @@
 #include "flpch.h"
 #include "VulkanDevice.h"
 
-#include "Flux/Log.h"
-#include "Flux/Core.h"
-
 namespace Flux {
 
 	VulkanDevice::~VulkanDevice()
