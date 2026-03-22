@@ -21,6 +21,7 @@ IncludeDir["Vulkan"] = "D:/VulkanSDK/1.4.335.0/Include"
 IncludeDir["vkbootstrap"] = "Flux/vendor/vk-bootstrap/src"
 IncludeDir["ImGui"] = "Flux/vendor/imgui"
 IncludeDir["glm"] = "Flux/vendor/glm"
+IncludeDir["vma"] = "Flux/vendor/vma/include"
 
 include "Flux/vendor/GLFW"
 include "Flux/vendor/imgui"
@@ -56,7 +57,8 @@ project "Flux"
 		"%{IncludeDir.Vulkan}",
 		"%{IncludeDir.vkbootstrap}",
 		"%{IncludeDir.ImGui}",
-		"%{IncludeDir.glm}"
+		"%{IncludeDir.glm}",
+		"%{IncludeDir.vma}"
 	}
 
 	links
@@ -117,7 +119,8 @@ project "Sandbox"
 		"%{IncludeDir.GLFW}",
 		"%{IncludeDir.Vulkan}",
 		"%{IncludeDir.vkbootstrap}",
-		"%{IncludeDir.ImGui}"
+		"%{IncludeDir.ImGui}",
+		"%{IncludeDir.vma}"
 	}
 
 	links 
