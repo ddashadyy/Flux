@@ -8,6 +8,7 @@
 namespace Flux {
 
 	VulkanShader::VulkanShader(const std::string& filePath)
+		: m_Name(filePath)
 	{
 		auto vertexShaderCode = Utils::ReadFile(filePath + ".vert.spv");
 		auto fragmentShaderCode = Utils::ReadFile(filePath + ".frag.spv");
@@ -16,7 +17,6 @@ namespace Flux {
 		m_FragModule = CreateShaderModule(fragmentShaderCode);
 
 		FL_CORE_INFO("Vulkan Shader Modules created");
-
 	}
 
 	VulkanShader::~VulkanShader()
@@ -25,7 +25,6 @@ namespace Flux {
 
 		vkDestroyShaderModule(device, m_FragModule, nullptr);
 		vkDestroyShaderModule(device, m_VertModule, nullptr);
-	
 	}
 
 	VkShaderModule VulkanShader::CreateShaderModule(const std::vector<char>& code)
