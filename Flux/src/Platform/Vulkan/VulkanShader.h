@@ -13,7 +13,7 @@ namespace Flux {
 		VulkanShader(const std::string& filePath);
 		~VulkanShader();
 
-		const std::string& GetName() const override { return m_Name; }
+		inline const std::string& GetName() const override { return m_Name; }
 
 		inline VkShaderModule GetVertexModule() const { return m_VertModule; }
 		inline VkShaderModule GetFragmentModule() const { return m_FragModule; }
@@ -23,8 +23,6 @@ namespace Flux {
 
 	private:
 		std::string    m_Name;
-
-
 
 		VkShaderModule m_VertModule = VK_NULL_HANDLE;
 		VkShaderModule m_FragModule = VK_NULL_HANDLE;
