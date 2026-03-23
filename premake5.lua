@@ -76,7 +76,6 @@ project "Flux"
 		defines 
 		{
 			"FL_PLATFORM_WINDOWS",
-			"FL_BUILD_DLL"
 		}
 
 	filter "configurations:Debug"
