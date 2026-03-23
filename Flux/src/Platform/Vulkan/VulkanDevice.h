@@ -9,10 +9,10 @@ namespace Flux {
 	class VulkanDevice
 	{
 	public:
-		FL_NON_COPYABLE(VulkanDevice);
-
 		VulkanDevice() = default;
 		~VulkanDevice();
+
+		FL_NON_COPYABLE(VulkanDevice);
 
 		void Init(vkb::Instance& instance, VkSurfaceKHR surface);
 

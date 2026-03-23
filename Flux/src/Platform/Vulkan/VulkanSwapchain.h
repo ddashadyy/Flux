@@ -15,10 +15,10 @@ namespace Flux {
 	class VulkanSwapchain
 	{
 	public:
-		FL_NON_COPYABLE(VulkanSwapchain);
-
 		VulkanSwapchain() = default;
 		~VulkanSwapchain();
+
+		FL_NON_COPYABLE(VulkanSwapchain);
 
 		void Init(vkb::Device& device, VkSurfaceKHR surface, GLFWwindow* window);
 		void Recreate(GLFWwindow* window);

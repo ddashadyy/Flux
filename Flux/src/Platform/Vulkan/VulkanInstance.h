@@ -11,10 +11,11 @@ namespace Flux {
 	class VulkanInstance
 	{
 	public:
-		FL_NON_COPYABLE(VulkanInstance);
 
 		VulkanInstance() = default;
 		~VulkanInstance();
+
+		FL_NON_COPYABLE(VulkanInstance);
 
 		void Init(const char* appName = "Flux");
 
