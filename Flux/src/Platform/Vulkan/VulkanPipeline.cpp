@@ -1,10 +1,11 @@
 #include "flpch.h"
 
-
 #include "VulkanPipeline.h"
-
 #include "VulkanContext.h"
 #include "VulkanShader.h"
+#include "VulkanUniformBuffer.h"
+
+#include "Flux/Geometry/Vertex.h"
 
 namespace Flux {
 
@@ -20,23 +21,58 @@ namespace Flux {
         VkDevice device = VulkanContext::Get().GetDevice();
         vkDestroyPipeline(device, m_Pipeline, nullptr);
         vkDestroyPipelineLayout(device, m_PipelineLayout, nullptr);
+        vkDestroyDescriptorSetLayout(device, m_DescriptorSetLayout, nullptr);
     }
 
     void VulkanPipeline::Bind() const
     {
         VkCommandBuffer cmd = VulkanContext::Get().GetCurrentCommandBuffer();
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline);
+
+        vkCmdBindDescriptorSets(
+            cmd,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            m_PipelineLayout,
+            0, 1, &m_DescriptorSet,
+            0, nullptr
+        );
+    }
+
+    void VulkanPipeline::SetUniformBuffer(const Ref<UniformBuffer>& uniformBuffer)
+    {
+        auto* vulkanUBO = static_cast<VulkanUniformBuffer*>(uniformBuffer.get());
+        CreateDescriptorSet(vulkanUBO->GetBuffer());
     }
 
     void VulkanPipeline::CreatePipelineLayout()
     {
-        VkPipelineLayoutCreateInfo layoutInfo{};
-        layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        VkDescriptorSetLayoutBinding uboBinding{};
+        uboBinding.binding = 0;
+        uboBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        uboBinding.descriptorCount = 1;
+        uboBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        uboBinding.pImmutableSamplers = nullptr;
+
+        VkDescriptorSetLayoutCreateInfo layoutInfo{};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layoutInfo.bindingCount = 1;
+        layoutInfo.pBindings = &uboBinding;
 
         FL_CORE_ASSERT(
-            vkCreatePipelineLayout(VulkanContext::Get().GetDevice(), &layoutInfo, nullptr, &m_PipelineLayout) == VK_SUCCESS,
+            vkCreateDescriptorSetLayout(VulkanContext::Get().GetDevice(), &layoutInfo, nullptr, &m_DescriptorSetLayout) == VK_SUCCESS,
+            "Failed to create descriptor set layout!"
+        );
+
+        VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+        pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        pipelineLayoutInfo.setLayoutCount = 1;
+        pipelineLayoutInfo.pSetLayouts = &m_DescriptorSetLayout;
+
+        FL_CORE_ASSERT(
+            vkCreatePipelineLayout(VulkanContext::Get().GetDevice(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout) == VK_SUCCESS,
             "Failed to create pipeline layout!"
         );
+
     }
 
     void VulkanPipeline::CreatePipeline(const Ref<Shader>& shader)
@@ -61,16 +97,23 @@ namespace Flux {
 
         VkPipelineShaderStageCreateInfo shaderStages[] = { vertStage, fragStage };
 
-        // Vertex input — пусто, вершины hardcoded в шейдере
+        // Vertex input 
+        auto bindingDescription = Vertex::getBindingDescription();
+        auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
         VkPipelineVertexInputStateCreateInfo vertexInput{};
         vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vertexInput.vertexBindingDescriptionCount = 1;
+		vertexInput.pVertexBindingDescriptions = &bindingDescription;
+		vertexInput.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+		vertexInput.pVertexAttributeDescriptions = attributeDescriptions.data();
 
         // Input assembly
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
         inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
         inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
-        // Viewport и scissor — динамические
+        // Viewport и scissor 
         VkPipelineViewportStateCreateInfo viewportState{};
         viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
         viewportState.viewportCount = 1;
@@ -107,7 +150,7 @@ namespace Flux {
         colorBlending.blendConstants[2] = 0.0f;
         colorBlending.blendConstants[3] = 0.0f;
 
-        // Dynamic state — viewport и scissor меняются при ресайзе
+        // Dynamic state
         VkDynamicState dynamicStates[] = {
             VK_DYNAMIC_STATE_VIEWPORT,
             VK_DYNAMIC_STATE_SCISSOR,
@@ -139,6 +182,36 @@ namespace Flux {
             vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline) == VK_SUCCESS,
             "Failed to create graphics pipeline!"
         );
+    }
+
+    void VulkanPipeline::CreateDescriptorSet(VkBuffer uniformBuffer)
+    {
+        VkDescriptorSetAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = VulkanContext::Get().GetDescriptorPool();
+        allocInfo.descriptorSetCount = 1;
+        allocInfo.pSetLayouts = &m_DescriptorSetLayout;
+
+        FL_CORE_ASSERT(
+            vkAllocateDescriptorSets(VulkanContext::Get().GetDevice(), &allocInfo, &m_DescriptorSet) == VK_SUCCESS,
+            "Failed to allocate descriptor set!"
+        );
+
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = uniformBuffer;
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(UniformBufferObject);
+
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = m_DescriptorSet;
+        write.dstBinding = 0;
+        write.dstArrayElement = 0;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        write.descriptorCount = 1;
+        write.pBufferInfo = &bufferInfo;
+
+        vkUpdateDescriptorSets(VulkanContext::Get().GetDevice(), 1, &write, 0, nullptr);
     }
 
 }
