@@ -3,16 +3,35 @@
 #include "VulkanPipeline.h"
 #include "VulkanContext.h"
 #include "VulkanShader.h"
+#include "VulkanBuffer.h"
 #include "VulkanUniformBuffer.h"
 
 #include "Flux/Geometry/Vertex.h"
 
 namespace Flux {
 
-    VulkanPipeline::VulkanPipeline(const Ref<Shader>& shader)
+    static VkFormat ShaderDataTypeToVkFormat(ShaderDataType type)
+    {
+        switch (type)
+        {
+        case ShaderDataType::Float:  return VK_FORMAT_R32_SFLOAT;
+        case ShaderDataType::Float2: return VK_FORMAT_R32G32_SFLOAT;
+        case ShaderDataType::Float3: return VK_FORMAT_R32G32B32_SFLOAT;
+        case ShaderDataType::Float4: return VK_FORMAT_R32G32B32A32_SFLOAT;
+        case ShaderDataType::Int:    return VK_FORMAT_R32_SINT;
+        case ShaderDataType::Int2:   return VK_FORMAT_R32G32_SINT;
+        case ShaderDataType::Int3:   return VK_FORMAT_R32G32B32_SINT;
+        case ShaderDataType::Int4:   return VK_FORMAT_R32G32B32A32_SINT;
+        }
+        FL_CORE_ASSERT(false, "Unknown ShaderDataType!");
+        return VK_FORMAT_UNDEFINED;
+    }
+
+
+    VulkanPipeline::VulkanPipeline(const Ref<Shader>& shader, const BufferLayout& layout)
     {
         CreatePipelineLayout();
-        CreatePipeline(shader);
+        CreatePipeline(shader, layout);
         FL_CORE_INFO("Vulkan pipeline created");
     }
 
@@ -75,7 +94,7 @@ namespace Flux {
 
     }
 
-    void VulkanPipeline::CreatePipeline(const Ref<Shader>& shader)
+    void VulkanPipeline::CreatePipeline(const Ref<Shader>& shader, const BufferLayout& layout)
     {
         VkDevice     device = VulkanContext::Get().GetDevice();
         VkRenderPass renderPass = VulkanContext::Get().GetRenderPass();
@@ -98,15 +117,30 @@ namespace Flux {
         VkPipelineShaderStageCreateInfo shaderStages[] = { vertStage, fragStage };
 
         // Vertex input 
-        auto bindingDescription = Vertex::getBindingDescription();
-        auto attributeDescriptions = Vertex::getAttributeDescriptions();
+        VkVertexInputBindingDescription binding{};
+        binding.binding = 0;
+        binding.stride = layout.GetStride();
+        binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        // Attribute descriptions из layout
+        std::vector<VkVertexInputAttributeDescription> attrs;
+        uint32_t location = 0;
+        for (auto& element : layout)
+        {
+            VkVertexInputAttributeDescription attr{};
+            attr.binding = 0;
+            attr.location = location++;
+            attr.format = ShaderDataTypeToVkFormat(element.Type);
+            attr.offset = static_cast<uint32_t>(element.Offset);
+            attrs.push_back(attr);
+        }
 
         VkPipelineVertexInputStateCreateInfo vertexInput{};
         vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         vertexInput.vertexBindingDescriptionCount = 1;
-		vertexInput.pVertexBindingDescriptions = &bindingDescription;
-		vertexInput.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-		vertexInput.pVertexAttributeDescriptions = attributeDescriptions.data();
+        vertexInput.pVertexBindingDescriptions = &binding;
+        vertexInput.vertexAttributeDescriptionCount = static_cast<uint32_t>(attrs.size());
+        vertexInput.pVertexAttributeDescriptions = attrs.data();
 
         // Input assembly
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{};

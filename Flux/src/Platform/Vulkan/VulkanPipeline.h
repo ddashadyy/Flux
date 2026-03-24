@@ -10,7 +10,7 @@ namespace Flux {
 	class VulkanPipeline final : public Pipeline
 	{
 	public: 
-        VulkanPipeline(const Ref<Shader>& shader);
+        VulkanPipeline(const Ref<Shader>& shader, const BufferLayout& layout);
         ~VulkanPipeline();
 
         FL_NON_COPYABLE(VulkanPipeline);
@@ -22,7 +22,7 @@ namespace Flux {
 
     private:
         void CreatePipelineLayout();
-        void CreatePipeline(const Ref<Shader>& shader);
+        void CreatePipeline(const Ref<Shader>& shader, const BufferLayout& layout);
         void CreateDescriptorSet(VkBuffer uniformBuffer);
 
     private:
