@@ -30,12 +30,19 @@ public:
 
 		m_Shader = Flux::Shader::Create("C:/dev/Flux/Sandbox/assets/shaders/shader");
 		
-		m_Pipeline = Flux::Pipeline::Create(m_Shader);
+		Flux::BufferLayout layout = {
+			{ Flux::ShaderDataType::Float3, "Position" },
+			{ Flux::ShaderDataType::Float3, "Color"    },
+		};
+
+		m_Pipeline = Flux::Pipeline::Create(m_Shader, layout);
 		
 		m_VertexBuffer = Flux::VertexBuffer::Create(
 			reinterpret_cast<float*>(vertices.data()),
 			sizeof(Flux::Vertex) * vertices.size()
 		);
+		m_VertexBuffer->SetLayout(layout);
+
 		m_IndexBuffer = Flux::IndexBuffer::Create(
 			indices.data(),
 			sizeof(uint32_t) * indices.size()
