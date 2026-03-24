@@ -5,11 +5,11 @@
 
 namespace Flux {
 
-	Ref<Pipeline> Pipeline::Create(const Ref<Shader>& shader)
+	Ref<Pipeline> Pipeline::Create(const Ref<Shader>& shader, const BufferLayout& layout)
 	{
 		switch (RendererAPI::GetAPI())
 		{
-		case RendererAPI::API::Vulkan: return Flux::CreateRef<VulkanPipeline>(shader);
+		case RendererAPI::API::Vulkan: return Flux::CreateRef<VulkanPipeline>(shader, layout);
 		case RendererAPI::API::None:   FL_CORE_ASSERT(false, "RendererAPI::None is currently not supported!"); return nullptr;
 		}
 
