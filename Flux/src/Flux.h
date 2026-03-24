@@ -23,6 +23,8 @@
 #include "Flux/Renderer/Pipeline.h"
 #include "Flux/Renderer/GraphicsContext.h"
 #include "Flux/Renderer/RendererAPI.h"
+#include "Flux/Renderer/Buffer.h"
+
 
 #include "Platform/Vulkan/VulkanContext.h"
 #include "Platform/Vulkan/VulkanPipeline.h"
