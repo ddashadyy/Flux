@@ -30,6 +30,9 @@ namespace Flux {
 		inline uint32_t                GetImageCount()   const { return (uint32_t)m_Images.size(); }
 		inline VkFramebuffer           GetFramebuffer(uint32_t index) const { return m_Framebuffers[index]; }
 
+		inline VkImage					     GetImage(uint32_t index) const { return m_Images[index]; }
+		inline const std::vector<VkImage>&   GetImages() const { return m_Images; }
+
 	private:
 		void CreateRenderPass();
 		void CreateFramebuffers();
@@ -38,11 +41,11 @@ namespace Flux {
 	private:
 		vkb::Device* m_Device = nullptr;
 
-		vkb::Swapchain           m_Swapchain;
-		VkRenderPass             m_RenderPass = VK_NULL_HANDLE;
+		vkb::Swapchain             m_Swapchain;
+		VkRenderPass               m_RenderPass = VK_NULL_HANDLE;
 
-		std::vector<VkImage>     m_Images;
-		std::vector<VkImageView> m_ImageViews;
+		std::vector<VkImage>       m_Images;
+		std::vector<VkImageView>   m_ImageViews;
 		std::vector<VkFramebuffer> m_Framebuffers;
 	};
 
