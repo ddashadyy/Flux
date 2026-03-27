@@ -4,6 +4,9 @@
 #include "Flux/Log.h"
 #include "Flux/Core.h"
 
+#include "Renderer/Renderer.h"
+#include "Renderer/RenderCommand.h"
+
 #include <GLFW/glfw3.h>
 
 #include "Input.h"
@@ -54,7 +57,7 @@ namespace Flux {
 	{
 		EventDispatcher dispatcher(e);
 		dispatcher.Dispatch<WindowCloseEvent>(FL_BIND_EVENT_FN(Application::OnWindowClose));
-		//dispatcher.Dispatch<WindowResizeEvent>(FL_BIND_EVENT_FN(Application::OnWindowResize));
+		dispatcher.Dispatch<WindowResizeEvent>(FL_BIND_EVENT_FN(Application::OnWindowResize));
 		//dispatcher.Dispatch<AppRenderEvent>(FL_BIND_EVENT_FN(Application::OnAppRender));
 	
 		for (auto it = m_LayerStack.end(); it != m_LayerStack.begin(); )
@@ -81,6 +84,7 @@ namespace Flux {
 
 	bool Application::OnWindowResize(WindowResizeEvent& e)
 	{
+		//Renderer::OnWindowResize(e.GetWidth(), e.GetHeight());
 		return false;
 	}
 
@@ -93,6 +97,9 @@ namespace Flux {
 	{
 		m_Window->GetContext().BeginFrame();
 
+		RenderCommand::SetViewport(m_Window->GetWidth(), m_Window->GetHeight(), 0, 0, 0, 1);
+		RenderCommand::BeginRenderPass({ 0.1f, 0.1f, 0.1f, 1.0f });
+
 		for (Layer* layer : m_LayerStack)
 			layer->OnUpdate();
 
@@ -100,6 +107,8 @@ namespace Flux {
 		for (Layer* layer : m_LayerStack)
 			layer->OnImGuiRender();
 		m_ImGuiLayer->End();
+
+		RenderCommand::EndRenderPass();
 
 		m_Window->GetContext().EndFrame();
 	}
