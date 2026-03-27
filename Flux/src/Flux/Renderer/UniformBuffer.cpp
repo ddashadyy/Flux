@@ -9,11 +9,11 @@ namespace Flux {
 	{
 		switch (RendererAPI::GetAPI())
 		{
+		case RendererAPI::API::None:   return nullptr;
 		case RendererAPI::API::Vulkan: return Flux::CreateRef<VulkanUniformBuffer>(size);
-		case RendererAPI::API::None:   FL_CORE_ASSERT(false, "RendererAPI::None is currently not supported!"); return nullptr;
 		}
 
-		FL_CORE_ASSERT(false, "RendererAPI::None is currently not supported!");
+		FL_CORE_ASSERT(false, "Unknown RendererAPI!");
 		return nullptr;
 	}
 
