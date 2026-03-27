@@ -23,6 +23,7 @@ namespace Flux {
         case ShaderDataType::Int3:   return VK_FORMAT_R32G32B32_SINT;
         case ShaderDataType::Int4:   return VK_FORMAT_R32G32B32A32_SINT;
         }
+
         FL_CORE_ASSERT(false, "Unknown ShaderDataType!");
         return VK_FORMAT_UNDEFINED;
     }
