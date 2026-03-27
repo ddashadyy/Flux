@@ -27,17 +27,19 @@ namespace Flux {
 		void BeginFrame() override;
 		void EndFrame()   override;
 
-		// Getters for ImGui
-		inline VkInstance        GetInstance()        const { return m_Instance.GetInstance(); }
-		inline VkPhysicalDevice  GetPhysicalDevice()  const { return m_Device.GetPhysicalDevice(); }
-		inline VkDevice          GetDevice()          const { return m_Device.GetDevice(); }
-		inline VkQueue           GetGraphicsQueue()   const { return m_Device.GetGraphicsQueue(); }
-		inline VkRenderPass      GetRenderPass()      const { return m_Swapchain.GetRenderPass(); }
-		inline VkDescriptorPool  GetDescriptorPool()  const { return m_DescriptorPool; }
-		inline uint32_t          GetImageCount()      const { return m_Swapchain.GetImageCount(); }
-		inline uint32_t          GetMinImageCount()   const { return 2; }
+		inline VkInstance        GetInstance()           const { return m_Instance.GetInstance(); }
+		inline VkPhysicalDevice  GetPhysicalDevice()     const { return m_Device.GetPhysicalDevice(); }
+		inline VkDevice          GetDevice()             const { return m_Device.GetDevice(); }
+		inline VkQueue           GetGraphicsQueue()      const { return m_Device.GetGraphicsQueue(); }
+		inline VkRenderPass      GetRenderPass()         const { return m_Swapchain.GetRenderPass(); }
+		inline VkFramebuffer	 GetCurrentFramebuffer() const { return m_Swapchain.GetFramebuffer(m_CurrentImageIndex); }
+		inline VkDescriptorPool  GetDescriptorPool()     const { return m_DescriptorPool; }
+		inline uint32_t          GetImageCount()         const { return m_Swapchain.GetImageCount(); }
+		inline uint32_t          GetMinImageCount()      const { return 2; }
 		inline VkCommandBuffer   GetCurrentCommandBuffer() const { return m_CommandBuffers[m_CurrentFrame]; }
 		inline uint32_t			 GetGraphicsQueueFamily() const { return m_Device.GetGraphicsQueueFamily(); }
+
+		inline const VulkanSwapchain& GetVulkanSwapchain() const { return m_Swapchain; }
 
 		inline static VulkanContext& Get() { return *s_Instance; }
 		inline bool   IsFrameStarted() const { return m_FrameStarted; }
