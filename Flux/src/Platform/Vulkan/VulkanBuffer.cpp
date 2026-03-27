@@ -11,7 +11,7 @@ namespace Flux {
 
 	VulkanVertexBuffer::VulkanVertexBuffer(uint32_t size)
 	{
-		VulkanUtils::CreateBuffer(static_cast<VkDeviceSize>(size), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_Buffer, m_Allocation);
+		VulkanUtils::CreateBuffer(sizeof(uint32_t) * static_cast<VkDeviceSize>(size), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_Buffer, m_Allocation);
 		FL_CORE_INFO("Created Vulkan Vertex buffer with size {0} bytes", size);
 	}
 
@@ -46,7 +46,7 @@ namespace Flux {
 
 	VulkanIndexBuffer::VulkanIndexBuffer(uint32_t* indices, uint32_t count)
 	{
-		VulkanUtils::CreateBuffer(static_cast<VkDeviceSize>(count), VK_BUFFER_USAGE_INDEX_BUFFER_BIT, m_Buffer, m_Allocation);
+		VulkanUtils::CreateBuffer(sizeof(uint32_t) * static_cast<VkDeviceSize>(count), VK_BUFFER_USAGE_INDEX_BUFFER_BIT, m_Buffer, m_Allocation);
 		VulkanUtils::MapMemory(indices, sizeof(uint32_t) * count, m_Allocation);
 
 		m_Count = count;
