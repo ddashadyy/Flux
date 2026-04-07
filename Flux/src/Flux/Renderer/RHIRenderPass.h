@@ -7,7 +7,7 @@ namespace Flux {
 
     enum class Format : uint8_t 
     { 
-        R8B8G8A8_UNORM      = 0,
+        R8G8B8A8_UNORM      = 0,
         B8G8R8A8_UNORM      = 1,
         D32_SFLOAT          = 2,
         R32G32_SFLOAT       = 3,
