@@ -1,47 +1,39 @@
 #include "flpch.h"
 #include "VulkanShader.h"
 
-#include "Platform/Vulkan/VulkanContext.h"
-
 #include "Flux/Utils/PlatformUtils.h"
 
 namespace Flux {
 
-	VulkanShader::VulkanShader(const std::string& filePath)
-		: m_Name(filePath)
+	static std::string ShaderStageToString(ShaderStage stage)
 	{
-		auto vertexShaderCode = Utils::ReadFile(filePath + ".vert.spv");
-		auto fragmentShaderCode = Utils::ReadFile(filePath + ".frag.spv");
+		switch (stage)
+		{
+		case ShaderStage::Vertex:   return "Vertex";
+		case ShaderStage::Fragment: return "Fragment";
+		case ShaderStage::Compute:  return "Compute";
+		}
 
-		m_VertModule = CreateShaderModule(vertexShaderCode);
-		m_FragModule = CreateShaderModule(fragmentShaderCode);
+		FL_CORE_ASSERT(false, "Unknown shader stage!");
+		return "";
+	}
 
-		FL_CORE_INFO("Vulkan Shader Modules created");
+	VulkanShader::VulkanShader(VkDevice device, ShaderStage stage, const std::vector<uint32_t>& spirv, const std::string& entryPoint)
+		: m_Device(device), m_Stage(stage), m_EntryPoint(entryPoint)
+	{
+		VkShaderModuleCreateInfo createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		createInfo.codeSize = spirv.size() * sizeof(uint32_t);
+		createInfo.pCode = spirv.data();
+
+		vkCreateShaderModule(m_Device, &createInfo, nullptr, &m_Module);
+
+		FL_CORE_INFO("Created Vulkan shader module, stage: {0}", ShaderStageToString(stage));
 	}
 
 	VulkanShader::~VulkanShader()
 	{
-		VkDevice device = VulkanContext::Get().GetDevice();
-
-		vkDestroyShaderModule(device, m_FragModule, nullptr);
-		vkDestroyShaderModule(device, m_VertModule, nullptr);
-	}
-
-	VkShaderModule VulkanShader::CreateShaderModule(const std::vector<char>& code)
-	{
-		VkDevice device = VulkanContext::Get().GetDevice();
-
-		VkShaderModuleCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		createInfo.pNext = VK_NULL_HANDLE;
-		createInfo.flags = 0;
-		createInfo.codeSize = code.size();
-		createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
-
-		VkShaderModule shaderModule;
-		FL_CORE_ASSERT(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) == VK_SUCCESS, "Failed to create Shader Module");
-
-		return shaderModule;
+		vkDestroyShaderModule(m_Device, m_Module , nullptr);
 	}
 
 }

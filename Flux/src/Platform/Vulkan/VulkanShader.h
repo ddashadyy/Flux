@@ -1,30 +1,31 @@
 #pragma once
 
 
-#include "Flux/Renderer/Shader.h"
+#include "Flux/Renderer/RHIShader.h"
 
 #include <vulkan/vulkan.h>
 
 namespace Flux {
 
-	class VulkanShader final : public Shader 
+	class VulkanShader final : public RHIShader 
 	{
 	public:
-		VulkanShader(const std::string& filePath);
+		VulkanShader(VkDevice device, ShaderStage stage,
+			const std::vector<uint32_t>& spirv,
+			const std::string& entryPoint = "main"
+		);
 		~VulkanShader();
 
-		inline const std::string& GetName() const override { return m_Name; }
+		inline ShaderStage        GetStage()      const override { return m_Stage; }
+		inline const std::string& GetEntryPoint() const override { return m_EntryPoint; }
 
-		inline VkShaderModule GetVertexModule() const { return m_VertModule; }
-		inline VkShaderModule GetFragmentModule() const { return m_FragModule; }
-
-	private: 
-		VkShaderModule CreateShaderModule(const std::vector<char>& code);
+		inline VkShaderModule     GetHandle()     const { return m_Module; }
 
 	private:
-		std::string    m_Name;
+		VkDevice       m_Device     = VK_NULL_HANDLE;
+		VkShaderModule m_Module     = VK_NULL_HANDLE;
 
-		VkShaderModule m_VertModule = VK_NULL_HANDLE;
-		VkShaderModule m_FragModule = VK_NULL_HANDLE;
+		ShaderStage    m_Stage      = ShaderStage::Vertex;
+		std::string    m_EntryPoint = "main";
 	};
 }
