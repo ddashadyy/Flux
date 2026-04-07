@@ -37,8 +37,8 @@ namespace Flux {
 		virtual void* Map()   = 0;
 		virtual void  Unmap() = 0;
 
-		virtual uint64_t    GetSize()  = 0;
-		virtual BufferUsage GetUsage() = 0;
+		virtual uint64_t    GetSize()  const = 0;
+		virtual BufferUsage GetUsage() const = 0;
 
 		void SetData(const void* data, uint64_t size)
 		{
