@@ -31,10 +31,13 @@ namespace Flux {
     struct RenderPassDesc
     {
         std::vector<Format> ColorFormats = {};
-        Format DepthFormat               = Format::R8B8G8A8_UNORM;
-        AttachmentLoadOp LoadOp          = AttachmentLoadOp::Load;
-        AttachmentStoreOp StoreOp        = AttachmentStoreOp::Store;
-        bool HasDepth                    = false;
+        Format              DepthFormat = Format::D32_SFLOAT;
+        bool                HasDepth = false;
+
+        AttachmentLoadOp  ColorLoadOp  = AttachmentLoadOp::Clear;
+        AttachmentStoreOp ColorStoreOp = AttachmentStoreOp::Store;
+        AttachmentLoadOp  DepthLoadOp  = AttachmentLoadOp::Clear;
+        AttachmentStoreOp DepthStoreOp = AttachmentStoreOp::DontCare;
     };
 
     class RHIRenderPass 
@@ -44,5 +47,7 @@ namespace Flux {
 
         virtual uint32_t GetColorAttachmentCount() const = 0;
         virtual bool     HasDepthAttachment()      const = 0;
+
+        virtual const RenderPassDesc& GetDesc() const = 0;
     };
 }
