@@ -1,71 +1,54 @@
 #include "flpch.h"
-#include "VulkanContext.h"
 #include "VulkanBuffer.h"
-#include "VulkanUtils.h"
 
 namespace Flux {
 
-	////////////////////////////////////////////////////////////////
-	///// Vertex Buffer ////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////
-
-	VulkanVertexBuffer::VulkanVertexBuffer(uint32_t size)
+	static VkBufferUsageFlags GetVkBufferUsageFlags(BufferUsage usage)
 	{
-		VulkanUtils::CreateBuffer(sizeof(uint32_t) * static_cast<VkDeviceSize>(size), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_Buffer, m_Allocation);
-		FL_CORE_INFO("Created Vulkan Vertex buffer with size {0} bytes", size);
+		switch (usage)
+		{
+			case BufferUsage::Vertex:  return VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+			case BufferUsage::Index:   return VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+			case BufferUsage::Uniform: return VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+			case BufferUsage::Storage: return VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+			case BufferUsage::Staging: return VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		}
+
+		FL_CORE_ASSERT(false, "Unknown buffer usage!");
+		return VK_BUFFER_USAGE_FLAG_BITS_MAX_ENUM;
 	}
 
-	VulkanVertexBuffer::VulkanVertexBuffer(float* vertices, uint32_t size)
+	VulkanBuffer::VulkanBuffer(VmaAllocator allocator, const BufferSpec& spec)
+		: m_Spec(spec), m_Allocator(allocator)
 	{
-		VulkanUtils::CreateBuffer(static_cast<VkDeviceSize>(size), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_Buffer, m_Allocation);
-		VulkanUtils::MapMemory(vertices, sizeof(uint32_t) * size, m_Allocation);
-
-		FL_CORE_INFO("Created Vulkan Vertex buffer with size {0} bytes", size);
-	}
-
-	VulkanVertexBuffer::~VulkanVertexBuffer()
-	{
-		vmaDestroyBuffer(VulkanContext::Get().GetAllocator(), m_Buffer, m_Allocation);
-	}
-
-	void VulkanVertexBuffer::Bind() const
-	{
-		VkCommandBuffer cmd = VulkanContext::Get().GetCurrentCommandBuffer();
-		VkDeviceSize offset = 0;
-		vkCmdBindVertexBuffers(cmd, 0, 1, &m_Buffer, &offset);
-	}
-
-	void VulkanVertexBuffer::Unbind() const
-	{
+		VkBufferCreateInfo bufferInfo{};
+		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferInfo.size = spec.Size;
+		bufferInfo.usage = GetVkBufferUsageFlags(spec.Usage);
 		
+		VmaAllocationCreateInfo allocInfo{};
+		allocInfo.usage = spec.CpuVisible ? VMA_MEMORY_USAGE_CPU_TO_GPU : VMA_MEMORY_USAGE_GPU_ONLY;
+
+		vmaCreateBuffer(m_Allocator, &bufferInfo, &allocInfo, &m_Buffer, &m_Allocation, nullptr);
+
+		FL_CORE_INFO("Created Vulkan buffer, size {0} bytes", spec.Size);
 	}
 
-	////////////////////////////////////////////////////////////////
-	///// Index Buffer ////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////
-
-	VulkanIndexBuffer::VulkanIndexBuffer(uint32_t* indices, uint32_t count)
+	VulkanBuffer::~VulkanBuffer()
 	{
-		VulkanUtils::CreateBuffer(sizeof(uint32_t) * static_cast<VkDeviceSize>(count), VK_BUFFER_USAGE_INDEX_BUFFER_BIT, m_Buffer, m_Allocation);
-		VulkanUtils::MapMemory(indices, sizeof(uint32_t) * count, m_Allocation);
-
-		m_Count = count;
-
-		FL_CORE_INFO("Created Vulkan Index buffer with size {0} bytes", count);
+		vmaDestroyBuffer(m_Allocator, m_Buffer, m_Allocation);
 	}
 
-	VulkanIndexBuffer::~VulkanIndexBuffer()
+	void* VulkanBuffer::Map()
 	{
-		vmaDestroyBuffer(VulkanContext::Get().GetAllocator(), m_Buffer, m_Allocation);
+		void* data;
+		vmaMapMemory(m_Allocator, m_Allocation, &data);
+
+		return data;
 	}
 
-	void VulkanIndexBuffer::Bind() const
+	void VulkanBuffer::Unmap()
 	{
-		VkCommandBuffer cmd = VulkanContext::Get().GetCurrentCommandBuffer();
-		vkCmdBindIndexBuffer(cmd, m_Buffer, 0, VK_INDEX_TYPE_UINT32);
-	}
-
-	void VulkanIndexBuffer::Unbind() const
-	{
+		vmaUnmapMemory(m_Allocator, m_Allocation);
 	}
 }

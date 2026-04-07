@@ -1,52 +1,31 @@
 #pragma once
 
 
-#include "Flux/Renderer/Buffer.h"
+#include "Flux/Renderer/RHIBuffer.h"
 
 #include "vulkan/vulkan.h"
 #include "vk_mem_alloc.h"
 
 namespace Flux {
 
-	class VulkanVertexBuffer final : public VertexBuffer
-	{
-	public: 
-		VulkanVertexBuffer(uint32_t size);
-		VulkanVertexBuffer(float* vertices, uint32_t size);
-
-		~VulkanVertexBuffer();
-
-		void Bind() const override;
-		void Unbind() const override;
-
-		inline const BufferLayout& GetLayout() const { return m_Layout; };
-		inline void SetLayout(const BufferLayout& layout) { m_Layout = layout; }
-
-	private: 
-		VkBuffer m_Buffer = VK_NULL_HANDLE;
-		VmaAllocation m_Allocation = VK_NULL_HANDLE;
-
-		BufferLayout m_Layout;
-	};
-
-
-	class VulkanIndexBuffer final : public IndexBuffer
+	class VulkanBuffer final : public RHIBuffer
 	{
 	public:
-		VulkanIndexBuffer(uint32_t* indices, uint32_t count);
+		VulkanBuffer(VmaAllocator allocator, const BufferSpec& spec);
+		~VulkanBuffer();
 
-		~VulkanIndexBuffer();
+		void* Map() override;
+		void  Unmap() override;
 
-		void Bind() const override;
-		void Unbind() const override;
-
-		inline uint32_t GetCount() const override { return m_Count; }
+		inline uint64_t    GetSize()  override { return m_Spec.Size; }
+		inline BufferUsage GetUsage() override { return m_Spec.Usage; }
 
 	private:
-		VkBuffer m_Buffer = VK_NULL_HANDLE;
-		VmaAllocation m_Allocation = VK_NULL_HANDLE;
+		BufferSpec m_Spec{};
+		VkBuffer   m_Buffer = VK_NULL_HANDLE;
 
-		uint32_t m_Count = 0;
+		VmaAllocator  m_Allocator  = VK_NULL_HANDLE;
+		VmaAllocation m_Allocation = VK_NULL_HANDLE;
 	};
 
 }
