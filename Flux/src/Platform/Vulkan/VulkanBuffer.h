@@ -17,8 +17,8 @@ namespace Flux {
 		void* Map() override;
 		void  Unmap() override;
 
-		inline uint64_t    GetSize()  override { return m_Spec.Size; }
-		inline BufferUsage GetUsage() override { return m_Spec.Usage; }
+		inline uint64_t    GetSize()  const override { return m_Spec.Size; }
+		inline BufferUsage GetUsage() const override { return m_Spec.Usage; }
 
 	private:
 		BufferSpec m_Spec{};
