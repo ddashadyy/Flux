@@ -1,6 +1,7 @@
 #include "flpch.h"
 #include "VulkanSemaphore.h"
 
+#include "Flux/Core.h"
 
 namespace Flux {
 
@@ -12,7 +13,7 @@ namespace Flux {
 		semaphoreInfo.pNext = nullptr;
 		semaphoreInfo.flags = 0;
 
-		vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_Semaphore);
+		FL_CORE_ASSERT(vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_Semaphore) == VK_SUCCESS, "Failed to create Semaphore");
 	}
 
 	VulkanSemaphore::~VulkanSemaphore()
