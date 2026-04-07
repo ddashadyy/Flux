@@ -20,6 +20,8 @@ namespace Flux {
 		inline uint64_t    GetSize()  const override { return m_Spec.Size; }
 		inline BufferUsage GetUsage() const override { return m_Spec.Usage; }
 
+		inline VkBuffer    GetHandle() const { return m_Buffer; }
+
 	private:
 		BufferSpec m_Spec{};
 		VkBuffer   m_Buffer = VK_NULL_HANDLE;
