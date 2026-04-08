@@ -1,16 +1,10 @@
 #pragma once
 
 
+#include "RHICommon.h"
 #include <string>
 
 namespace Flux {
-
-    enum class ShaderStage : uint8_t
-    {
-        Vertex,
-        Fragment,
-        Compute,
-    };
 
     class RHIShader
     {
