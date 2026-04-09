@@ -1,35 +1,29 @@
 #pragma once
 
 
-#include "Flux/Renderer/Pipeline.h"
+#include "Flux/Renderer/RHIPipeline.h"
+#include "VulkanShader.h"
 
 #include <vulkan/vulkan.h>
 
 namespace Flux {
 
-	class VulkanPipeline final : public Pipeline
-	{
-	public: 
-        VulkanPipeline(const Ref<Shader>& shader, const BufferLayout& layout);
-        ~VulkanPipeline();
+    class VulkanPipeline : public RHIPipeline 
+    {
+    public:
+        VulkanPipeline(VkDevice device, const PipelineDesc& desc);
+        ~VulkanPipeline() override;
 
-        FL_NON_COPYABLE(VulkanPipeline);
+        inline PipelineType GetType()  const override { return m_Desc.Type; }
+		inline bool         IsValid()  const override { return m_Pipeline != VK_NULL_HANDLE; }
 
-        void Bind() const override;
-        void SetUniformBuffer(const Ref<UniformBuffer>& uniformBuffer) override;
-
-        inline VkPipeline GetPipeline() const { return m_Pipeline; }
-
-    private:
-        void CreatePipelineLayout();
-        void CreatePipeline(const Ref<Shader>& shader, const BufferLayout& layout);
-        void CreateDescriptorSet(VkBuffer uniformBuffer);
+        VkPipeline            GetHandle()       const { return m_Pipeline; }
+        VkPipelineLayout      GetLayout()       const { return m_PipelineLayout; }
 
     private:
-        VkPipeline            m_Pipeline            = VK_NULL_HANDLE;
-        VkPipelineLayout      m_PipelineLayout      = VK_NULL_HANDLE;
-
-        VkDescriptorSetLayout m_DescriptorSetLayout = VK_NULL_HANDLE;
-        VkDescriptorSet       m_DescriptorSet       = VK_NULL_HANDLE;
-	};
+        VkDevice         m_Device = VK_NULL_HANDLE;
+        VkPipeline       m_Pipeline = VK_NULL_HANDLE;
+        VkPipelineLayout m_PipelineLayout = VK_NULL_HANDLE;
+        PipelineDesc     m_Desc;
+    };
 }

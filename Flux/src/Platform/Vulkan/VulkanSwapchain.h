@@ -1,52 +1,52 @@
 #pragma once
-
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#include <VkBootstrap.h>
-
-#include "Flux/Core.h"
-
-#include <vector>
-
-
+#include "FLux/Renderer/RHISwapchain.h"
+#include <vulkan/vulkan.h>
 
 namespace Flux {
 
-	class VulkanSwapchain
-	{
-	public:
-		VulkanSwapchain() = default;
-		~VulkanSwapchain();
+    class VulkanSwapchain : public RHISwapchain {
+    public:
+        VulkanSwapchain(VkDevice device,
+            VkPhysicalDevice physicalDevice,
+            VkSurfaceKHR     surface,
+            VkQueue          presentQueue,
+            uint32_t         width,
+            uint32_t         height);
+        ~VulkanSwapchain();
 
-		FL_NON_COPYABLE(VulkanSwapchain);
+        uint32_t AcquireNextImage(RHISemaphore* semaphore) override;
+        void     Present(RHISemaphore* semaphore)          override;
+        void     Resize(uint32_t w, uint32_t h)            override;
+        inline uint32_t GetCurrentImageIndex()              const override { return m_CurrentImageIndex; }
+        Format   GetFormat()                         const override;
 
-		void Init(vkb::Device& device, VkSurfaceKHR surface, GLFWwindow* window);
-		void Recreate(GLFWwindow* window);
+        inline VkFramebuffer GetCurrentFramebuffer() const { return m_Framebuffers[m_CurrentImageIndex]; }
+        inline VkExtent2D    GetExtent()             const { return m_Extent; }
+        inline VkRenderPass  GetRenderPass()         const { return m_RenderPass; }
 
-		inline VkSwapchainKHR          GetSwapchain()    const { return m_Swapchain.swapchain; }
-		inline VkRenderPass            GetRenderPass()   const { return m_RenderPass; }
-		inline VkExtent2D              GetExtent()       const { return m_Swapchain.extent; }
-		inline VkFormat                GetFormat()       const { return m_Swapchain.image_format; }
-		inline uint32_t                GetImageCount()   const { return (uint32_t)m_Images.size(); }
-		inline VkFramebuffer           GetFramebuffer(uint32_t index) const { return m_Framebuffers[index]; }
+        inline uint32_t GetImageCount() const { return static_cast<uint32_t>(m_Images.size()); }
 
-		inline VkImage					     GetImage(uint32_t index) const { return m_Images[index]; }
-		inline const std::vector<VkImage>&   GetImages() const { return m_Images; }
+    private:
+        void CreateSwapchain(uint32_t width, uint32_t height);
+        void CreateImageViews();
+        void CreateFramebuffers();
+        void Cleanup();
 
-	private:
-		void CreateRenderPass();
-		void CreateFramebuffers();
-		void Cleanup();
+    private:
+        VkDevice         m_Device = VK_NULL_HANDLE;
+        VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;
+        VkSurfaceKHR     m_Surface = VK_NULL_HANDLE;
+        VkQueue          m_PresentQueue = VK_NULL_HANDLE;
 
-	private:
-		vkb::Device* m_Device = nullptr;
+        VkSwapchainKHR             m_Swapchain = VK_NULL_HANDLE;
+        VkRenderPass               m_RenderPass = VK_NULL_HANDLE;
+        VkExtent2D                 m_Extent{};
+        VkFormat                   m_Format{};
+        uint32_t                   m_CurrentImageIndex = 0;
 
-		vkb::Swapchain             m_Swapchain;
-		VkRenderPass               m_RenderPass = VK_NULL_HANDLE;
-
-		std::vector<VkImage>       m_Images;
-		std::vector<VkImageView>   m_ImageViews;
-		std::vector<VkFramebuffer> m_Framebuffers;
-	};
+        std::vector<VkImage>       m_Images       = {};
+        std::vector<VkImageView>   m_ImageViews   = {};
+        std::vector<VkFramebuffer> m_Framebuffers = {};
+    };
 
 }
