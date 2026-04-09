@@ -52,10 +52,6 @@ namespace Flux {
 
 		m_Window = glfwCreateWindow((int)props.Width, (int)props.Height, m_Data.Title.c_str(), nullptr, nullptr);
 
-		// Create graphics context
-		m_Context = GraphicsContext::Create(m_Window);
-		m_Context->Init();
-
 		glfwSetWindowUserPointer(m_Window, &m_Data);
 
 		// GLFW Callbacks
