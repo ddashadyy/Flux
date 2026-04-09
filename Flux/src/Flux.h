@@ -15,19 +15,17 @@
 
 
 // ---Geometry-------------
-#include "Flux/Geometry/Vertex.h"
+#include "Flux/Renderer/Geometry.h"
 // ------------------------
 
 // ---Renderer-------------
 #include "Flux/Renderer/PerspectiveCamera.h"
 
-#include "Flux/Renderer/Buffer.h"
-#include "Flux/Renderer/GraphicsContext.h"
-#include "Flux/Renderer/Pipeline.h"
-#include "Flux/Renderer/Shader.h"
+#include "Flux/Renderer/RHIBuffer.h"
+#include "Flux/Renderer/RHIPipeline.h"
+#include "Flux/Renderer/RHIShader.h"
 
-#include "Flux/Renderer/RendererAPI.h"
-#include "Flux/Renderer/Renderer.h"
+#include "Flux/Renderer/RendererBackend.h"
 
 // ------------------------
 
