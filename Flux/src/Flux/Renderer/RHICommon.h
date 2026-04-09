@@ -22,4 +22,17 @@ namespace Flux {
         R32G32B32A32_SFLOAT = 5,
     };
 
+    enum class ResourceState : uint8_t 
+    {
+        Undefined              = 0,
+        RenderTarget           = 1,
+        ShaderResource         = 2,
+        UnorderedAccess        = 3,
+        TransferSrc            = 4,
+        TransferDst            = 5,
+        Present                = 6,
+        DepthStencilWrite      = 7,
+        DepthStencilRead       = 8,
+    };
+
 }
