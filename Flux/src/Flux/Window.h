@@ -4,7 +4,6 @@
 
 #include "Flux/Core.h"
 #include "Flux/Events/Event.h"
-#include "Flux/Renderer/GraphicsContext.h"
 
 namespace Flux {
 
@@ -40,7 +39,6 @@ namespace Flux {
 		virtual bool IsVSync() const = 0;
 
 		virtual void* GetNativeWindow() const = 0;
-		virtual GraphicsContext& GetContext() const = 0;
 
 		static Window* Create(const WindowProps& props = WindowProps());
 	};
