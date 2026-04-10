@@ -11,7 +11,7 @@ namespace Flux {
     class VulkanCommandList final : public RHICommandList 
     {
     public:
-        VulkanCommandList(VkDevice device, VkQueue graphicsQueue, uint32_t queueFamilyIndex, VulkanSwapchain* swapchain);
+        VulkanCommandList(VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, VulkanSwapchain* swapchain);
         ~VulkanCommandList();
 
         inline VkCommandBuffer GetHandle() const { return m_CommandBuffer; }
@@ -23,7 +23,7 @@ namespace Flux {
             RHISemaphore* waitSemaphore = nullptr,
             RHISemaphore* signalSemaphore = nullptr) override;
 
-        void BeginRenderPass(RHIRenderPass* renderPass) override;
+        void BeginRenderPass(RHIRenderPass* renderPass, uint32_t imageIndex) override;
         void EndRenderPass() override;
 
         void SetPipeline(RHIPipeline* pipeline) override;

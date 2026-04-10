@@ -1,5 +1,7 @@
 #pragma once
 #include "FLux/Renderer/RHISwapchain.h"
+#include "VulkanRenderPass.h"
+
 #include <vulkan/vulkan.h>
 
 namespace Flux {
@@ -14,17 +16,20 @@ namespace Flux {
             uint32_t         height);
         ~VulkanSwapchain();
 
-        uint32_t AcquireNextImage(RHISemaphore* semaphore) override;
-        void     Present(RHISemaphore* semaphore)          override;
-        void     Resize(uint32_t w, uint32_t h)            override;
+        uint32_t AcquireNextImage(RHISemaphore* semaphore)             override;
+        void     Present(RHISemaphore* semaphore, uint32_t imageIndex) override;
+        void     Resize(uint32_t w, uint32_t h)                        override;
+
         inline uint32_t GetCurrentImageIndex()              const override { return m_CurrentImageIndex; }
-        Format   GetFormat()                         const override;
+		inline RHIRenderPass* GetRenderPass()               const override { return m_RenderPass.get(); }
+        Format   GetFormat()                                const override;
 
-        inline VkFramebuffer GetCurrentFramebuffer() const { return m_Framebuffers[m_CurrentImageIndex]; }
-        inline VkExtent2D    GetExtent()             const { return m_Extent; }
-        inline VkRenderPass  GetRenderPass()         const { return m_RenderPass; }
+        inline VkFramebuffer  GetCurrentFramebuffer()        const { return m_Framebuffers[m_CurrentImageIndex]; }
+        inline VkFramebuffer  GetFramebuffer(uint32_t index) const { return m_Framebuffers[index]; }
+        inline VkExtent2D     GetExtent()                    const { return m_Extent; }
+        inline VkRenderPass   GetNativceRenderPass()         const { return static_cast<VulkanRenderPass*>(m_RenderPass.get())->GetHandle(); }
 
-        inline uint32_t GetImageCount() const { return static_cast<uint32_t>(m_Images.size()); }
+        inline uint32_t GetImageCount() const override { return static_cast<uint32_t>(m_Images.size()); }
 
     private:
         void CreateSwapchain(uint32_t width, uint32_t height);
@@ -39,10 +44,11 @@ namespace Flux {
         VkQueue          m_PresentQueue = VK_NULL_HANDLE;
 
         VkSwapchainKHR             m_Swapchain = VK_NULL_HANDLE;
-        VkRenderPass               m_RenderPass = VK_NULL_HANDLE;
         VkExtent2D                 m_Extent{};
         VkFormat                   m_Format{};
         uint32_t                   m_CurrentImageIndex = 0;
+
+        Scope<RHIRenderPass> m_RenderPass;
 
         std::vector<VkImage>       m_Images       = {};
         std::vector<VkImageView>   m_ImageViews   = {};

@@ -26,7 +26,7 @@ namespace Flux {
         Scope<RHIDescriptorSetLayout> CreateDescriptorSetLayout(const DescriptorSetLayoutDesc& desc) override;
         Scope<RHIDescriptorSet>       CreateDescriptorSet(const RHIDescriptorSetLayout* layout)  override;
 
-        inline RHICommandList* GetCommandList() override { return m_CommandList.get(); }
+        inline RHICommandList* GetCommandList(uint32_t index = 0) override { return m_CommandLists[index].get(); }
         inline RHISwapchain* GetSwapchain()     override { return m_Swapchain.get(); }
 
         VkCommandBuffer BeginSingleTimeCommands();
@@ -66,9 +66,10 @@ namespace Flux {
         VmaAllocator     m_Allocator           = nullptr;
         VkDescriptorPool m_DescriptorPool      = VK_NULL_HANDLE;
         VkCommandPool    m_TransferCommandPool = VK_NULL_HANDLE;
+        VkCommandPool    m_GraphicsCommandPool = VK_NULL_HANDLE;
 
         Scope<VulkanSwapchain>   m_Swapchain;
-        Scope<VulkanCommandList> m_CommandList;
+        std::vector<Scope<VulkanCommandList>> m_CommandLists;
     };
 
 }

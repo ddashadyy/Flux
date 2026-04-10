@@ -68,22 +68,12 @@ namespace Flux {
         return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     }
 
-    VulkanCommandList::VulkanCommandList(VkDevice device, VkQueue graphicsQueue, uint32_t queueFamilyIndex, VulkanSwapchain* swapchain)
-        : m_Device(device), m_GraphicsQueue(graphicsQueue), m_Swapchain(swapchain)
+    VulkanCommandList::VulkanCommandList(VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, VulkanSwapchain* swapchain)
+        : m_Device(device), m_CommandPool(commandPool), m_GraphicsQueue(graphicsQueue), m_Swapchain(swapchain)
     {
-        // Command Pool
-        VkCommandPoolCreateInfo poolInfo{};
-        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        poolInfo.queueFamilyIndex = queueFamilyIndex;
-        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-
-        FL_CORE_ASSERT(vkCreateCommandPool(m_Device, &poolInfo, nullptr, &m_CommandPool) == VK_SUCCESS,
-            "Failed to create Command Pool");
-
-        // Command Buffer
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.commandPool = m_CommandPool;
+        allocInfo.commandPool = m_CommandPool; // Используем общий пул
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandBufferCount = 1;
 
@@ -96,12 +86,11 @@ namespace Flux {
     VulkanCommandList::~VulkanCommandList()
     {
         vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &m_CommandBuffer);
-        vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
     }
 
     void VulkanCommandList::Begin()
     {
-        vkResetCommandBuffer(m_CommandBuffer, 0);
+        FL_CORE_ASSERT(vkResetCommandBuffer(m_CommandBuffer, 0) == VK_SUCCESS, "Failed to reset Command Buffer!");
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -139,21 +128,19 @@ namespace Flux {
             "Failed to submit Command Buffer");
     }
 
-    void VulkanCommandList::BeginRenderPass(RHIRenderPass* renderPass)
+    void VulkanCommandList::BeginRenderPass(RHIRenderPass* renderPass, uint32_t imageIndex)
     {
-        auto* vkRenderPass = static_cast<VulkanRenderPass*>(renderPass);
 
         VkRenderPassBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        beginInfo.renderPass = vkRenderPass->GetHandle();
-        beginInfo.framebuffer = m_Swapchain->GetCurrentFramebuffer(); 
-        beginInfo.renderArea.extent = m_Swapchain->GetExtent();          
+        beginInfo.renderPass = m_Swapchain->GetNativceRenderPass();
+        beginInfo.framebuffer = m_Swapchain->GetFramebuffer(imageIndex);
         beginInfo.renderArea.offset = { 0, 0 };
+        beginInfo.renderArea.extent = m_Swapchain->GetExtent();
 
         std::array<VkClearValue, 2> clearValues{};
         clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
         clearValues[1].depthStencil = { 1.0f, 0 };
-
         beginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
         beginInfo.pClearValues = clearValues.data();
 

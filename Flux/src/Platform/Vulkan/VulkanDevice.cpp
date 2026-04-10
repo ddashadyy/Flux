@@ -51,21 +51,25 @@ namespace Flux {
     {
         vkDeviceWaitIdle(m_Device);
 
-        m_CommandList.reset();
+        m_CommandLists.clear();
         m_Swapchain.reset();
 
         vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
         vkDestroyCommandPool(m_Device, m_TransferCommandPool, nullptr);
+
+        if (m_GraphicsCommandPool != VK_NULL_HANDLE)
+            vkDestroyCommandPool(m_Device, m_GraphicsCommandPool, nullptr);
+
         vmaDestroyAllocator(m_Allocator);
         vkDestroyDevice(m_Device, nullptr);
         vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
 
-#ifdef FL_DEBUG
+    #ifdef FL_DEBUG
         auto vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)
             vkGetInstanceProcAddr(m_Instance, "vkDestroyDebugUtilsMessengerEXT");
         if (vkDestroyDebugUtilsMessengerEXT)
             vkDestroyDebugUtilsMessengerEXT(m_Instance, m_DebugMessenger, nullptr);
-#endif
+    #endif
 
         vkDestroyInstance(m_Instance, nullptr);
     }
@@ -93,9 +97,9 @@ namespace Flux {
         };
 
         std::vector<const char*> layers;
-#ifdef FL_DEBUG
+    #ifdef FL_DEBUG
         layers.emplace_back("VK_LAYER_KHRONOS_validation");
-#endif
+    #endif
 
         VkInstanceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -111,7 +115,7 @@ namespace Flux {
 
     void VulkanDevice::CreateDebugMessenger()
     {
-#ifdef FL_DEBUG
+    #ifdef FL_DEBUG
         VkDebugUtilsMessengerCreateInfoEXT createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
         createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
@@ -125,7 +129,7 @@ namespace Flux {
 
         FL_CORE_ASSERT(func, "Failed to load vkCreateDebugUtilsMessengerEXT");
         func(m_Instance, &createInfo, nullptr, &m_DebugMessenger);
-#endif
+    #endif
     }
 
     void VulkanDevice::CreateSurface(void* windowHandle)
@@ -143,7 +147,6 @@ namespace Flux {
         std::vector<VkPhysicalDevice> devices(deviceCount);
         vkEnumeratePhysicalDevices(m_Instance, &deviceCount, devices.data());
 
-        // берём первый дискретный GPU
         for (auto& device : devices)
         {
             VkPhysicalDeviceProperties props;
@@ -157,7 +160,6 @@ namespace Flux {
             }
         }
 
-        // если дискретного нет — берём первый доступный
         m_PhysicalDevice = devices[0];
         VkPhysicalDeviceProperties props;
         vkGetPhysicalDeviceProperties(m_PhysicalDevice, &props);
@@ -166,7 +168,6 @@ namespace Flux {
 
     void VulkanDevice::CreateLogicalDevice()
     {
-        // находим graphics queue family
         uint32_t queueFamilyCount = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(m_PhysicalDevice, &queueFamilyCount, nullptr);
         std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
@@ -266,7 +267,6 @@ namespace Flux {
 
     void VulkanDevice::CreateCommandList()
     {
-        // создаём transfer command pool
         VkCommandPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         poolInfo.queueFamilyIndex = m_GraphicsQueueFamilyIndex;
@@ -275,9 +275,23 @@ namespace Flux {
         FL_CORE_ASSERT(vkCreateCommandPool(m_Device, &poolInfo, nullptr, &m_TransferCommandPool) == VK_SUCCESS,
             "Failed to create Transfer Command Pool");
 
-        m_CommandList = CreateScope<VulkanCommandList>(m_Device, m_GraphicsQueue,
-            m_GraphicsQueueFamilyIndex,
-            m_Swapchain.get());
+        VkCommandPoolCreateInfo graphicsPoolInfo{};
+        graphicsPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        graphicsPoolInfo.queueFamilyIndex = m_GraphicsQueueFamilyIndex;
+        graphicsPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+        FL_CORE_ASSERT(vkCreateCommandPool(m_Device, &graphicsPoolInfo, nullptr, &m_GraphicsCommandPool) == VK_SUCCESS,
+            "Failed to create Graphics Command Pool");
+
+        uint32_t imageCount = m_Swapchain->GetImageCount();
+        m_CommandLists.reserve(imageCount);
+
+        for (uint32_t i = 0; i < imageCount; i++)
+        {
+            m_CommandLists.emplace_back(
+                CreateScope<VulkanCommandList>(m_Device, m_GraphicsCommandPool, m_GraphicsQueue, m_Swapchain.get())
+            );
+        }
     }
 
     Scope<RHIBuffer> VulkanDevice::CreateBuffer(const BufferSpec& spec)
@@ -331,7 +345,7 @@ namespace Flux {
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandPool = m_TransferCommandPool;
+        allocInfo.commandPool = m_TransferCommandPool; 
         allocInfo.commandBufferCount = 1;
 
         VkCommandBuffer cmd;

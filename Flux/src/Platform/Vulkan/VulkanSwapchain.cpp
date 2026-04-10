@@ -52,7 +52,6 @@ namespace Flux {
     VulkanSwapchain::~VulkanSwapchain()
     {
         Cleanup();
-        vkDestroyRenderPass(m_Device, m_RenderPass, nullptr);
     }
 
     uint32_t VulkanSwapchain::AcquireNextImage(RHISemaphore* semaphore)
@@ -65,7 +64,7 @@ namespace Flux {
         return m_CurrentImageIndex;
     }
 
-    void VulkanSwapchain::Present(RHISemaphore* semaphore)
+    void VulkanSwapchain::Present(RHISemaphore* semaphore, uint32_t imageIndex)
     {
         VkSemaphore vkSemaphore = static_cast<VulkanSemaphore*>(semaphore)->GetHandle();
 
@@ -75,7 +74,7 @@ namespace Flux {
         presentInfo.pWaitSemaphores = &vkSemaphore;
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = &m_Swapchain;
-        presentInfo.pImageIndices = &m_CurrentImageIndex;
+        presentInfo.pImageIndices = &imageIndex;
 
         vkQueuePresentKHR(m_PresentQueue, &presentInfo);
     }
@@ -151,52 +150,15 @@ namespace Flux {
         m_Format = surfaceFormat.format;
         m_Extent = extent;
 
-        // простой render pass для презентации
-        VkAttachmentDescription colorAttachment{};
-        colorAttachment.format = m_Format;
-        colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-        VkAttachmentReference colorRef{};
-        colorRef.attachment = 0;
-        colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-        VkSubpassDescription subpass{};
-        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        subpass.colorAttachmentCount = 1;
-        subpass.pColorAttachments = &colorRef;
-
-        std::array<VkSubpassDependency, 2> dependencies{};
-        dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-        dependencies[0].dstSubpass = 0;
-        dependencies[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependencies[0].srcAccessMask = 0;
-        dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-        dependencies[1].srcSubpass = 0;
-        dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-        dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-        dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        dependencies[1].dstAccessMask = 0;
-
-        VkRenderPassCreateInfo renderPassInfo{};
-        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        renderPassInfo.attachmentCount = 1;
-        renderPassInfo.pAttachments = &colorAttachment;
-        renderPassInfo.subpassCount = 1;
-        renderPassInfo.pSubpasses = &subpass;
-        renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
-        renderPassInfo.pDependencies = dependencies.data();
-
-        FL_CORE_ASSERT(vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &m_RenderPass) == VK_SUCCESS,
-            "Failed to create Swapchain RenderPass");
+        if (!m_RenderPass)
+        {
+            RenderPassDesc rpDesc{};
+            rpDesc.ColorFormats = { Format::B8G8R8A8_UNORM };
+            rpDesc.HasDepth = false;
+            rpDesc.ColorLoadOp = AttachmentLoadOp::Clear;
+            rpDesc.ColorStoreOp = AttachmentStoreOp::Store;
+            m_RenderPass = CreateScope<VulkanRenderPass>(m_Device, rpDesc);
+        }
     }
 
     void VulkanSwapchain::CreateImageViews()
@@ -229,7 +191,7 @@ namespace Flux {
         {
             VkFramebufferCreateInfo framebufferInfo{};
             framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            framebufferInfo.renderPass = m_RenderPass;
+            framebufferInfo.renderPass = GetNativceRenderPass();
             framebufferInfo.attachmentCount = 1;
             framebufferInfo.pAttachments = &m_ImageViews[i];
             framebufferInfo.width = m_Extent.width;
@@ -239,7 +201,6 @@ namespace Flux {
             FL_CORE_ASSERT(vkCreateFramebuffer(m_Device, &framebufferInfo, nullptr, &m_Framebuffers[i]) == VK_SUCCESS,
                 "Failed to create Framebuffer");
         }
-
     }
 
     void VulkanSwapchain::Cleanup()

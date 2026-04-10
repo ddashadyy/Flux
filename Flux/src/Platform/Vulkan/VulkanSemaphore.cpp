@@ -14,6 +14,7 @@ namespace Flux {
 		semaphoreInfo.flags = 0;
 
 		FL_CORE_ASSERT(vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_Semaphore) == VK_SUCCESS, "Failed to create Semaphore");
+		FL_CORE_INFO("Created Vulkan Semaphore");
 	}
 
 	VulkanSemaphore::~VulkanSemaphore()
