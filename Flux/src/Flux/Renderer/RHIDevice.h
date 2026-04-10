@@ -32,7 +32,7 @@ namespace Flux {
         virtual Scope<RHIDescriptorSetLayout> CreateDescriptorSetLayout(const DescriptorSetLayoutDesc& desc) = 0;
         virtual Scope<RHIDescriptorSet>       CreateDescriptorSet(const RHIDescriptorSetLayout* layout) = 0;
 
-        virtual RHICommandList* GetCommandList() = 0;
+        virtual RHICommandList* GetCommandList(uint32_t index = 0) = 0;
         virtual RHISwapchain* GetSwapchain() = 0;
     };
 
