@@ -52,7 +52,7 @@ namespace Flux {
         initInfo.DescriptorPool = vkDevice.GetDescriptorPool();
         initInfo.MinImageCount = 2;
         initInfo.ImageCount = vkSwapchain.GetImageCount();
-        initInfo.PipelineInfoMain.RenderPass = vkSwapchain.GetRenderPass(); 
+        initInfo.PipelineInfoMain.RenderPass = static_cast<VulkanRenderPass*>(vkSwapchain.GetRenderPass())->GetHandle();
 
         ImGui_ImplVulkan_Init(&initInfo);
 
@@ -82,7 +82,7 @@ namespace Flux {
         ImGui::NewFrame();
     }
 
-    void ImGuiLayer::End()
+    void ImGuiLayer::End(uint32_t frameIndex)
     {
         ImGuiIO& io = ImGui::GetIO();
         Application& app = Application::Get();
@@ -93,7 +93,7 @@ namespace Flux {
         );
 
         // берём VkCommandBuffer из CommandList
-        auto* cmdList = static_cast<VulkanCommandList*>(app.GetDevice().GetCommandList());
+        auto* cmdList = static_cast<VulkanCommandList*>(app.GetDevice().GetCommandList(frameIndex));
         VkCommandBuffer cmd = cmdList->GetHandle();
 
         ImGui::Render();

@@ -19,7 +19,7 @@ namespace Flux {
 		virtual void OnImGuiRender() override;
 
 		void Begin();
-		void End();
+		void End(uint32_t frameIndex = 0);
 
 	private:
 		float m_Time = 0.0f;
