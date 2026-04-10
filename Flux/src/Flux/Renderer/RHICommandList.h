@@ -22,7 +22,7 @@ namespace Flux {
             RHISemaphore* waitSemaphore = nullptr,
             RHISemaphore* signalSemaphore = nullptr) = 0;
 
-        virtual void BeginRenderPass(RHIRenderPass* renderPass) = 0;
+        virtual void BeginRenderPass(RHIRenderPass* renderPass, uint32_t imageIndex) = 0;
         virtual void EndRenderPass() = 0;
 
         virtual void SetPipeline(RHIPipeline* pipeline) = 0;
