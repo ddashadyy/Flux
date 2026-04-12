@@ -7,6 +7,15 @@
 
 namespace Flux {
 
+    enum class ImageLayout : uint8_t
+    {
+        Undefined              = 0,
+        ColorAttachment        = 1,
+        DepthStencilAttachment = 2,
+        ShaderReadOnly         = 3,
+        Present                = 4,
+    };
+
     enum class AttachmentLoadOp : uint8_t
     { 
         Load     = 0, 
@@ -26,10 +35,14 @@ namespace Flux {
         Format              DepthFormat = Format::D32_SFLOAT;
         bool                HasDepth = false;
 
-        AttachmentLoadOp  ColorLoadOp  = AttachmentLoadOp::Clear;
+        AttachmentLoadOp  ColorLoadOp = AttachmentLoadOp::Clear;
         AttachmentStoreOp ColorStoreOp = AttachmentStoreOp::Store;
-        AttachmentLoadOp  DepthLoadOp  = AttachmentLoadOp::Clear;
+        AttachmentLoadOp  DepthLoadOp = AttachmentLoadOp::Clear;
         AttachmentStoreOp DepthStoreOp = AttachmentStoreOp::DontCare;
+
+        ImageLayout ColorInitialLayout = ImageLayout::Undefined; 
+        ImageLayout ColorFinalLayout = ImageLayout::Present;
+
     };
 
     class RHIRenderPass 
