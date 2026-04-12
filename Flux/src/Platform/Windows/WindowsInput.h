@@ -6,15 +6,15 @@
 
 namespace Flux {
 
-	class WindowsInput : public Input
+	class WindowsInput final : public Input
 	{
 	protected: 
-		virtual bool IsKeyPressedImpl(int keycode) override;
+		bool IsKeyPressedImpl(int keycode) override;
 
-		virtual std::pair<float, float> GetMousePositionImpl() override;
-		virtual bool IsMouseButtonPressedImpl(int button) override;
-		virtual float GetMouseXImpl() override;
-		virtual float GetMouseYImpl() override;
+		std::pair<float, float> GetMousePositionImpl() override;
+		bool IsMouseButtonPressedImpl(int button) override;
+		float GetMouseXImpl() override;
+		float GetMouseYImpl() override;
 	};
 
 }
