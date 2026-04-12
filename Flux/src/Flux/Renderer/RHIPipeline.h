@@ -40,11 +40,19 @@ namespace Flux {
 		Compute = 1,
 	};
 
+	struct PipelineLayoutDesc
+	{
+		ShaderStage Stage = ShaderStage::Vertex | ShaderStage::Fragment;
+		uint32_t Offset   = 0;
+		uint32_t Size     = 0;
+	};
+
 	struct PipelineDesc 
 	{
 		const RHIShader*              VertexShader         = nullptr;
 		const RHIShader*              FragmentShader       = nullptr;
 		BufferLayout                  VertexLayout;
+		PipelineLayoutDesc            pipelineLayoutDesc;
 		BlendState                    Blend;
 		DepthStencilState             DepthStencil;
 		PrimitiveTopology             Topology             = PrimitiveTopology::TriangleList;
@@ -61,6 +69,8 @@ namespace Flux {
 
 		virtual PipelineType GetType()    const = 0;
 		virtual bool         IsValid()    const = 0;
+
+		virtual const PipelineLayoutDesc& GetLayoutDesc() const = 0;
 	};
 
 }
