@@ -6,6 +6,7 @@
 #include "RHIPipeline.h"
 #include "RHIFence.h"
 #include "RHISemaphore.h"
+#include "RHIFramebuffer.h"
 
 namespace Flux {
 
@@ -22,13 +23,15 @@ namespace Flux {
             RHISemaphore* waitSemaphore = nullptr,
             RHISemaphore* signalSemaphore = nullptr) = 0;
 
-        virtual void BeginRenderPass(RHIRenderPass* renderPass, uint32_t imageIndex) = 0;
+        virtual void BeginRenderPass(RHIRenderPass* renderPass, uint32_t imageIndex)         = 0;
+        virtual void BeginRenderPass(RHIRenderPass* renderPass, RHIFramebuffer* framebuffer) = 0;
         virtual void EndRenderPass() = 0;
 
-        virtual void SetPipeline(RHIPipeline* pipeline) = 0;
+        virtual void SetPipeline(RHIPipeline* pipeline)  = 0;
+        virtual void PushConstants(RHIPipeline* pipeline, const void* pushConstants) = 0;
 
         virtual void BindVertexBuffer(RHIBuffer* buffer) = 0;
-        virtual void BindIndexBuffer(RHIBuffer* buffer) = 0;
+        virtual void BindIndexBuffer(RHIBuffer* buffer)  = 0;
 
         virtual void BindDescriptorSet(RHIDescriptorSet* descriptorSet) = 0;
 
