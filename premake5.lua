@@ -22,6 +22,8 @@ IncludeDir["vkbootstrap"] = "Flux/vendor/vk-bootstrap/src"
 IncludeDir["ImGui"] = "Flux/vendor/imgui"
 IncludeDir["glm"] = "Flux/vendor/glm"
 IncludeDir["vma"] = "Flux/vendor/vma/include"
+IncludeDir["stb"] = "Flux/vendor/stb"
+IncludeDir["tinyobjloader"] = "Flux/vendor/tinyobjloader"
 
 include "Flux/vendor/GLFW"
 include "Flux/vendor/imgui"
@@ -46,7 +48,9 @@ project "Flux"
 		"%{prj.name}/src/**.h",
 		"%{prj.name}/src/**.cpp",
 		"%{prj.name}/vendor/glm/glm/**.hpp",
-		"%{prj.name}/vendor/glm/glm/**.inl"
+		"%{prj.name}/vendor/glm/glm/**.inl",
+		"%{prj.name}/vendor/stb/**.h",
+		"%{prj.name}/vendor/tinyobjloader/**.h"
 	}
 
 	includedirs
@@ -58,7 +62,9 @@ project "Flux"
 		"%{IncludeDir.vkbootstrap}",
 		"%{IncludeDir.ImGui}",
 		"%{IncludeDir.glm}",
-		"%{IncludeDir.vma}"
+		"%{IncludeDir.vma}",
+		"%{IncludeDir.stb}",
+		"%{IncludeDir.tinyobjloader}"
 	}
 
 	links
@@ -119,7 +125,9 @@ project "Sandbox"
 		"%{IncludeDir.Vulkan}",
 		"%{IncludeDir.vkbootstrap}",
 		"%{IncludeDir.ImGui}",
-		"%{IncludeDir.vma}"
+		"%{IncludeDir.vma}",
+		"%{IncludeDir.stb}",
+		"%{IncludeDir.tinyobjloader}"
 	}
 
 	links 
