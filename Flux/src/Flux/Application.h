@@ -44,20 +44,25 @@ namespace Flux {
         void CreateImGuiFramebuffers();
 
     private:
-        Scope<Window>     m_Window;
-        Scope<RHIDevice>  m_Device;
+        // Платформа
+        Scope<Window>    m_Window;
+        Scope<RHIDevice> m_Device;
 
+        // Синхронизация GPU 
         std::vector<Scope<RHIFence>>     m_FrameFences;
         std::vector<Scope<RHISemaphore>> m_ImageAvailable;
         std::vector<Scope<RHISemaphore>> m_RenderFinished;
 
-        Scope<RHIRenderPass>                       m_ImGuiRenderPass;
-        std::vector<Scope<RHIFramebuffer>>         m_ImGuiFramebuffers;
+        // ImGui 
+        Scope<RHIRenderPass>               m_ImGuiRenderPass;
+        std::vector<Scope<RHIFramebuffer>> m_ImGuiFramebuffers;
 
+        // Состояние фрейма
         uint32_t m_CurrentFrame = 0;
-        uint32_t m_MaxFrames = 2;
+        uint32_t m_MaxFrames = 0;
 
-        ImGuiLayer* m_ImGuiLayer = nullptr;
+        // Слои
+        ImGuiLayer* m_ImGuiLayer = nullptr; // не владеет
         LayerStack  m_LayerStack;
         bool        m_Running = true;
 
