@@ -48,7 +48,7 @@ namespace Flux {
         std::vector<Scope<RHISemaphore>> m_RenderFinished;
 
         uint32_t m_CurrentFrame = 0;
-        static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+        uint32_t m_MaxFrames = 2;
 
         ImGuiLayer* m_ImGuiLayer = nullptr;
         LayerStack  m_LayerStack;
