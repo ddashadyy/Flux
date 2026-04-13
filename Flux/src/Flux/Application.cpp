@@ -23,11 +23,14 @@ namespace Flux {
 
         m_Device = RHIFactory::CreateDevice(RendererBackend::Auto, nativeWindow, width, height);
 
-        m_FrameFences.resize(MAX_FRAMES_IN_FLIGHT);
-        m_ImageAvailable.resize(MAX_FRAMES_IN_FLIGHT);
-        m_RenderFinished.resize(MAX_FRAMES_IN_FLIGHT);
+        auto* swapchain = m_Device->GetSwapchain();
+        m_MaxFrames = swapchain->GetImageCount();
 
-        for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
+        m_FrameFences.resize(m_MaxFrames);
+        m_ImageAvailable.resize(m_MaxFrames);
+        m_RenderFinished.resize(m_MaxFrames);
+
+        for (uint32_t i = 0; i < m_MaxFrames; i++) 
         {
             m_FrameFences[i] = m_Device->CreateFence(true);
             m_ImageAvailable[i] = m_Device->CreateSemaphore();
@@ -46,7 +49,8 @@ namespace Flux {
 
     void Application::Run()
     {
-        while (m_Running) {
+        while (m_Running) 
+        {
             RenderFrame();
             m_Window->OnUpdate();
         }
@@ -58,7 +62,8 @@ namespace Flux {
         dispatcher.Dispatch<WindowCloseEvent>(FL_BIND_EVENT_FN(Application::OnWindowClose));
         dispatcher.Dispatch<WindowResizeEvent>(FL_BIND_EVENT_FN(Application::OnWindowResize));
 
-        for (auto it = m_LayerStack.end(); it != m_LayerStack.begin();) {
+        for (auto it = m_LayerStack.end(); it != m_LayerStack.begin();) 
+        {
             (*--it)->OnEvent(e);
             if (e.Handled) break;
         }
@@ -77,40 +82,51 @@ namespace Flux {
 
     bool Application::OnWindowResize(WindowResizeEvent& e)
     {
+        if (e.GetWidth() == 0 || e.GetHeight() == 0)
+            return false; // минимизация — ничего не делаем
+
         m_Device->GetSwapchain()->Resize(e.GetWidth(), e.GetHeight());
+
+        for (auto& layer : m_LayerStack)
+            layer->OnResize(e.GetWidth(), e.GetHeight());
+
         return false;
+
     }
 
     void Application::RenderFrame()
     {
         auto* swapchain = m_Device->GetSwapchain();
-        auto* cmdList = m_Device->GetCommandList();
 
         m_FrameFences[m_CurrentFrame]->Wait();
         m_FrameFences[m_CurrentFrame]->Reset();
 
-        swapchain->AcquireNextImage(m_ImageAvailable[m_CurrentFrame].get());
+        uint32_t imageIndex = swapchain->AcquireNextImage(m_ImageAvailable[m_CurrentFrame].get());
+        auto* cmdList = m_Device->GetCommandList(m_CurrentFrame);
 
         cmdList->Begin();
 
         for (Layer* layer : m_LayerStack)
-            layer->OnUpdate();
-
+            layer->OnUpdate(cmdList);
+        
+        cmdList->BeginRenderPass(swapchain->GetRenderPass(), imageIndex);
         m_ImGuiLayer->Begin();
         for (Layer* layer : m_LayerStack)
             layer->OnImGuiRender();
-        m_ImGuiLayer->End();
+        m_ImGuiLayer->End(m_CurrentFrame);
+        cmdList->EndRenderPass();
 
         cmdList->End();
+
         cmdList->Submit(
             m_FrameFences[m_CurrentFrame].get(),
             m_ImageAvailable[m_CurrentFrame].get(),
             m_RenderFinished[m_CurrentFrame].get()
         );
 
-        swapchain->Present(m_RenderFinished[m_CurrentFrame].get());
+        swapchain->Present(m_RenderFinished[m_CurrentFrame].get(), imageIndex);
 
-        m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+        m_CurrentFrame = (m_CurrentFrame + 1) % m_MaxFrames;
     }
 
 }
