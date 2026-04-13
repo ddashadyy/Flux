@@ -18,6 +18,7 @@ namespace Flux {
 
         Scope<RHIBuffer>              CreateBuffer(const BufferSpec& spec)                       override;
         Scope<RHITexture>             CreateTexture(const TextureSpec& spec)                     override;
+        Scope<RHIFramebuffer>         CreateFramebuffer(const FramebufferSpec& spec)             override;
         Scope<RHIPipeline>            CreatePipeline(const PipelineDesc& spec)                   override;
         Scope<RHIRenderPass>          CreateRenderPass(const RenderPassDesc& spec)               override;
         Scope<RHIShader>              CreateShader(ShaderStage stage, const std::vector<uint32_t>& spirv) override;
@@ -28,6 +29,8 @@ namespace Flux {
 
         inline RHICommandList* GetCommandList(uint32_t index = 0) override { return m_CommandLists[index].get(); }
         inline RHISwapchain* GetSwapchain()     override { return m_Swapchain.get(); }
+
+        DeviceMemoryStats GetMemoryStatistics() const override;
 
         VkCommandBuffer BeginSingleTimeCommands();
         void            EndSingleTimeCommands(VkCommandBuffer cmd);

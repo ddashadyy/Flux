@@ -9,6 +9,7 @@
 #include "VulkanFence.h"
 #include "VulkanSemaphore.h"
 #include "VulkanDescriptorSet.h"
+#include "VulkanFramebuffer.h"
 
 #include <vk_mem_alloc.h>
 #include <GLFW/glfw3.h>
@@ -304,6 +305,11 @@ namespace Flux {
         return CreateScope<VulkanTexture>(m_Device, m_GraphicsQueue, m_TransferCommandPool, m_Allocator, spec);
     }
 
+    Scope<RHIFramebuffer> VulkanDevice::CreateFramebuffer(const FramebufferSpec& spec)
+    {
+        return CreateScope<VulkanFramebuffer>(m_Device, spec);
+    }
+
     Scope<RHIPipeline> VulkanDevice::CreatePipeline(const PipelineDesc& desc)
     {
         return CreateScope<VulkanPipeline>(m_Device, desc);
@@ -338,6 +344,22 @@ namespace Flux {
     {
         auto* vkLayout = static_cast<const VulkanDescriptorSetLayout*>(layout);
         return CreateScope<VulkanDescriptorSet>(m_Device, m_DescriptorPool, vkLayout->GetHandle());
+    }
+
+    DeviceMemoryStats VulkanDevice::GetMemoryStatistics() const
+    {
+        VmaBudget budgets[VK_MAX_MEMORY_HEAPS];
+        vmaGetHeapBudgets(m_Allocator, budgets);
+        
+        DeviceMemoryStats memStats{};
+        memStats.AllocationBytes = budgets->statistics.allocationBytes;
+        memStats.AllocationCount = budgets->statistics.allocationCount;
+        memStats.BlockBytes = budgets->statistics.blockBytes;
+        memStats.BlockCount = budgets->statistics.blockCount;
+        memStats.Usage = budgets->usage;
+        memStats.Budget = budgets->budget;
+
+        return memStats;
     }
 
     VkCommandBuffer VulkanDevice::BeginSingleTimeCommands()
