@@ -42,28 +42,36 @@ namespace Flux {
         return VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
     }
 
+    static VkShaderStageFlags GetShaderStageFlags(ShaderStage stage)
+    {
+        VkShaderStageFlags flags = 0;
 
-    
+        if (HasFlag(stage, ShaderStage::Vertex))
+            flags |= VK_SHADER_STAGE_VERTEX_BIT;
+
+        if (HasFlag(stage, ShaderStage::Fragment))
+            flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        if (HasFlag(stage, ShaderStage::Compute))
+            flags |= VK_SHADER_STAGE_COMPUTE_BIT;
+
+        // Если не установлен ни один флаг, можно вернуть 0 или ассерт
+        if (flags == 0)
+        {
+            FL_CORE_ASSERT(false, "No Shader Stage specified!");
+        }
+
+        return flags;
+
+    }
 
     VulkanPipeline::VulkanPipeline(VkDevice device, const PipelineDesc& desc)
         : m_Device(device), m_Desc(desc)
     {
         // сначала создаем Layout
-        VkDescriptorSetLayout descriptorSetLayout =
-            static_cast<const VulkanDescriptorSetLayout*>(desc.DescriptorSetLayout)->GetHandle();
-
-        VkPipelineLayoutCreateInfo layoutInfo{};
-        layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        layoutInfo.setLayoutCount = 1;
-        layoutInfo.pSetLayouts = &descriptorSetLayout;
-        layoutInfo.pushConstantRangeCount = 0;
-        layoutInfo.pPushConstantRanges = nullptr;
-
-        FL_CORE_ASSERT(vkCreatePipelineLayout(m_Device, &layoutInfo, nullptr, &m_PipelineLayout) == VK_SUCCESS,
-            "Failed to create Pipeline Layout");
+        CreatePipelineLayout();
 
         // Создание графического конвейера
-        
 		// Первый этап - Input Assembly
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
         inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -193,6 +201,42 @@ namespace Flux {
     {
         vkDestroyPipeline(m_Device, m_Pipeline, nullptr);
         vkDestroyPipelineLayout(m_Device, m_PipelineLayout, nullptr);
+    }
+
+    void VulkanPipeline::CreatePipelineLayout()
+    {
+        VkDescriptorSetLayout descriptorSetLayout =
+            static_cast<const VulkanDescriptorSetLayout*>(m_Desc.DescriptorSetLayout)->GetHandle();
+
+        VkPipelineLayoutCreateInfo layoutInfo{};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        layoutInfo.setLayoutCount = 1;
+        layoutInfo.pSetLayouts = &descriptorSetLayout;
+        
+
+        auto pushConstants = m_Desc.pipelineLayoutDesc;
+        if (pushConstants.Size > 0)
+        {
+            VkShaderStageFlags stageFlags = GetShaderStageFlags(pushConstants.Stage);
+
+            VkPushConstantRange pushConstantRange{};
+            pushConstantRange.stageFlags = stageFlags;
+            pushConstantRange.offset = pushConstants.Offset;
+            pushConstantRange.size = pushConstants.Size;
+
+            layoutInfo.pushConstantRangeCount = 1;
+            layoutInfo.pPushConstantRanges = &pushConstantRange;
+        }
+        else
+        {
+            layoutInfo.pushConstantRangeCount = 0;
+            layoutInfo.pPushConstantRanges = nullptr;
+        }
+
+
+        FL_CORE_ASSERT(vkCreatePipelineLayout(m_Device, &layoutInfo, nullptr, &m_PipelineLayout) == VK_SUCCESS,
+            "Failed to create Pipeline Layout");
+
     }
 
 }

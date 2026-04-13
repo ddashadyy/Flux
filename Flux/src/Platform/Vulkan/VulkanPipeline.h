@@ -14,11 +14,16 @@ namespace Flux {
         VulkanPipeline(VkDevice device, const PipelineDesc& desc);
         ~VulkanPipeline() override;
 
-        inline PipelineType GetType()  const override { return m_Desc.Type; }
-		inline bool         IsValid()  const override { return m_Pipeline != VK_NULL_HANDLE; }
+        PipelineType GetType()  const override { return m_Desc.Type; }
+		bool         IsValid()  const override { return m_Pipeline != VK_NULL_HANDLE; }
 
         VkPipeline            GetHandle()       const { return m_Pipeline; }
         VkPipelineLayout      GetLayout()       const { return m_PipelineLayout; }
+
+        const PipelineLayoutDesc& GetLayoutDesc() const { return m_Desc.pipelineLayoutDesc; }
+
+    private: 
+        void CreatePipelineLayout();
 
     private:
         VkDevice         m_Device = VK_NULL_HANDLE;
