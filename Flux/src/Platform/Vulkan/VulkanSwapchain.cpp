@@ -44,7 +44,6 @@ namespace Flux {
     {
         CreateSwapchain(width, height);
         CreateImageViews();
-        CreateFramebuffers();
 
         FL_CORE_INFO("Created Vulkan Swapchain {}x{}", width, height);
     }
@@ -85,7 +84,6 @@ namespace Flux {
         Cleanup();
         CreateSwapchain(w, h);
         CreateImageViews();
-        CreateFramebuffers();
 
         FL_CORE_INFO("Recreated Vulkan Swapchain {0}x{1}", w, h);
     }
@@ -149,18 +147,6 @@ namespace Flux {
 
         m_Format = surfaceFormat.format;
         m_Extent = extent;
-
-        if (!m_RenderPass)
-        {
-            RenderPassDesc rpDesc{};
-            rpDesc.ColorFormats = { Format::B8G8R8A8_UNORM };
-            rpDesc.HasDepth = false;
-            rpDesc.ColorLoadOp = AttachmentLoadOp::Load;
-            rpDesc.ColorStoreOp = AttachmentStoreOp::Store;
-            rpDesc.ColorInitialLayout = ImageLayout::ColorAttachment;
-            rpDesc.ColorFinalLayout = ImageLayout::Present;
-            m_RenderPass = CreateScope<VulkanRenderPass>(m_Device, rpDesc);
-        }
     }
 
     void VulkanSwapchain::CreateImageViews()
@@ -191,31 +177,8 @@ namespace Flux {
         }
     }
 
-    void VulkanSwapchain::CreateFramebuffers()
-    {
-        m_Framebuffers.resize(m_ImageViews.size());
-
-        for (size_t i = 0; i < m_ImageViews.size(); i++)
-        {
-            VkFramebufferCreateInfo framebufferInfo{};
-            framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            framebufferInfo.renderPass = GetNativceRenderPass();
-            framebufferInfo.attachmentCount = 1;
-            framebufferInfo.pAttachments = &m_ImageViews[i];
-            framebufferInfo.width = m_Extent.width;
-            framebufferInfo.height = m_Extent.height;
-            framebufferInfo.layers = 1;
-
-            FL_CORE_ASSERT(vkCreateFramebuffer(m_Device, &framebufferInfo, nullptr, &m_Framebuffers[i]) == VK_SUCCESS,
-                "Failed to create Framebuffer");
-        }
-    }
-
     void VulkanSwapchain::Cleanup()
     {
-        for (auto& framebuffer : m_Framebuffers)
-            vkDestroyFramebuffer(m_Device, framebuffer, nullptr);
-
         for (auto& imageView : m_ImageViews)
             vkDestroyImageView(m_Device, imageView, nullptr);
 

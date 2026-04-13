@@ -5,6 +5,7 @@
 
 #include "VulkanRenderPass.h"
 #include "VulkanSwapchainTexture.h"
+#include "VulkanFramebuffer.h"
 
 #include <vulkan/vulkan.h>
 
@@ -24,24 +25,17 @@ namespace Flux {
         void     Present(RHISemaphore* semaphore, uint32_t imageIndex) override;
         void     Resize(uint32_t w, uint32_t h)                        override;
 
-        inline uint32_t GetCurrentImageIndex()              const override { return m_CurrentImageIndex; }
-		inline RHIRenderPass* GetRenderPass()               const override { return m_RenderPass.get(); }
-        Format   GetFormat()                                const override;
+        uint32_t   GetCurrentImageIndex() const override { return m_CurrentImageIndex; }
+        uint32_t   GetImageCount()        const override { return static_cast<uint32_t>(m_Images.size()); }
+        Format     GetFormat()            const override;
+        VkExtent2D GetExtent()            const { return m_Extent; }
 
-        inline VkFramebuffer  GetCurrentFramebuffer()        const { return m_Framebuffers[m_CurrentImageIndex]; }
-        inline VkFramebuffer  GetFramebuffer(uint32_t index) const { return m_Framebuffers[index]; }
-        inline VkExtent2D     GetExtent()                    const { return m_Extent; }
-        inline VkRenderPass   GetNativceRenderPass()         const { return static_cast<VulkanRenderPass*>(m_RenderPass.get())->GetHandle(); }
-
-        inline uint32_t GetImageCount() const override { return static_cast<uint32_t>(m_Images.size()); }
-
-        inline RHITexture* GetColorTarget(uint32_t index) const override { return m_ColorTargets[index].get(); }
+        RHITexture* GetColorTarget(uint32_t index) const override { return m_ColorTargets[index].get(); }
 
 
     private:
         void CreateSwapchain(uint32_t width, uint32_t height);
         void CreateImageViews();
-        void CreateFramebuffers();
         void Cleanup();
 
     private:
@@ -55,11 +49,8 @@ namespace Flux {
         VkFormat                   m_Format{};
         uint32_t                   m_CurrentImageIndex = 0;
 
-        Scope<RHIRenderPass> m_RenderPass;
-
         std::vector<VkImage>       m_Images       = {};
         std::vector<VkImageView>   m_ImageViews   = {};
-        std::vector<VkFramebuffer> m_Framebuffers = {};
 
         std::vector<Scope<VulkanSwapchainTexture>> m_ColorTargets = {};
     };
