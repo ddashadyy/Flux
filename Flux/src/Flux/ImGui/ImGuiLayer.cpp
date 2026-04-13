@@ -52,7 +52,7 @@ namespace Flux {
         initInfo.DescriptorPool = vkDevice.GetDescriptorPool();
         initInfo.MinImageCount = 2;
         initInfo.ImageCount = vkSwapchain.GetImageCount();
-        initInfo.PipelineInfoMain.RenderPass = static_cast<VulkanRenderPass*>(vkSwapchain.GetRenderPass())->GetHandle();
+        initInfo.PipelineInfoMain.RenderPass = static_cast<VulkanRenderPass&>(app.GetImGuiRenderPass()).GetHandle();
 
         ImGui_ImplVulkan_Init(&initInfo);
 

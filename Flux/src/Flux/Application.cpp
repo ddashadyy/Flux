@@ -37,6 +37,9 @@ namespace Flux {
             m_RenderFinished[i] = m_Device->CreateSemaphore();
         }
 
+        CreateImGuiRenderPass();      
+        CreateImGuiFramebuffers();    
+
         m_ImGuiLayer = new ImGuiLayer();
         PushOverlay(m_ImGuiLayer);
     }
@@ -83,15 +86,15 @@ namespace Flux {
     bool Application::OnWindowResize(WindowResizeEvent& e)
     {
         if (e.GetWidth() == 0 || e.GetHeight() == 0)
-            return false; // минимизация — ничего не делаем
+            return false;
 
         m_Device->GetSwapchain()->Resize(e.GetWidth(), e.GetHeight());
+        CreateImGuiFramebuffers(); 
 
         for (auto& layer : m_LayerStack)
             layer->OnResize(e.GetWidth(), e.GetHeight());
 
         return false;
-
     }
 
     void Application::RenderFrame()
@@ -108,8 +111,11 @@ namespace Flux {
 
         for (Layer* layer : m_LayerStack)
             layer->OnUpdate(cmdList);
-        
-        cmdList->BeginRenderPass(swapchain->GetRenderPass(), imageIndex);
+
+        cmdList->BeginRenderPass(m_ImGuiRenderPass.get(), m_ImGuiFramebuffers[imageIndex].get());
+        cmdList->SetViewport(0, 0, (float)m_Window->GetWidth(), (float)m_Window->GetHeight());
+        cmdList->SetScissor(0, 0, m_Window->GetWidth(), m_Window->GetHeight());
+
         m_ImGuiLayer->Begin();
         for (Layer* layer : m_LayerStack)
             layer->OnImGuiRender();
@@ -127,6 +133,38 @@ namespace Flux {
         swapchain->Present(m_RenderFinished[m_CurrentFrame].get(), imageIndex);
 
         m_CurrentFrame = (m_CurrentFrame + 1) % m_MaxFrames;
+    }
+
+    void Application::CreateImGuiRenderPass()
+    {
+        auto* swapchain = m_Device->GetSwapchain();
+
+        RenderPassDesc rpDesc{};
+        rpDesc.ColorFormats = { swapchain->GetFormat() };
+        rpDesc.HasDepth = false;
+        rpDesc.ColorLoadOp = AttachmentLoadOp::Load;        
+        rpDesc.ColorStoreOp = AttachmentStoreOp::Store;
+        rpDesc.ColorInitialLayout = ImageLayout::ColorAttachment;
+        rpDesc.ColorFinalLayout = ImageLayout::Present;     
+        m_ImGuiRenderPass = m_Device->CreateRenderPass(rpDesc);
+    }
+
+    void Application::CreateImGuiFramebuffers()
+    {
+        auto* swapchain = m_Device->GetSwapchain();
+        uint32_t imageCount = swapchain->GetImageCount();
+        m_ImGuiFramebuffers.resize(imageCount);
+
+        for (uint32_t i = 0; i < imageCount; i++)
+        {
+            FramebufferSpec fbSpec{};
+            fbSpec.RenderPass = m_ImGuiRenderPass.get();
+            fbSpec.ColorTargets = { swapchain->GetColorTarget(i) };
+            fbSpec.DepthTarget = nullptr;
+            fbSpec.Width = m_Window->GetWidth();
+            fbSpec.Height = m_Window->GetHeight();
+            m_ImGuiFramebuffers[i] = m_Device->CreateFramebuffer(fbSpec);
+        }
     }
 
 }

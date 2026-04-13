@@ -28,16 +28,20 @@ namespace Flux {
         void PopLayer(Layer* layer);
         void PopOverlay(Layer* layer);
 
-        inline Window& GetWindow() { return *m_Window; }
-        inline RHIDevice& GetDevice() { return *m_Device; }
-        inline RHISwapchain& GetSwapchain() { return *m_Device->GetSwapchain(); }
+        Window& GetWindow() { return *m_Window; }
+        RHIDevice& GetDevice() { return *m_Device; }
+        RHISwapchain& GetSwapchain() { return *m_Device->GetSwapchain(); }
+        RHIRenderPass& GetImGuiRenderPass() const { return *m_ImGuiRenderPass; }
 
-        inline static Application& Get() { return *s_Instance; }
+        static Application& Get() { return *s_Instance; }
 
     private:
         bool OnWindowClose(WindowCloseEvent& e);
         bool OnWindowResize(WindowResizeEvent& e);
         void RenderFrame();
+        
+        void CreateImGuiRenderPass();
+        void CreateImGuiFramebuffers();
 
     private:
         Scope<Window>     m_Window;
@@ -46,6 +50,9 @@ namespace Flux {
         std::vector<Scope<RHIFence>>     m_FrameFences;
         std::vector<Scope<RHISemaphore>> m_ImageAvailable;
         std::vector<Scope<RHISemaphore>> m_RenderFinished;
+
+        Scope<RHIRenderPass>                       m_ImGuiRenderPass;
+        std::vector<Scope<RHIFramebuffer>>         m_ImGuiFramebuffers;
 
         uint32_t m_CurrentFrame = 0;
         uint32_t m_MaxFrames = 2;
