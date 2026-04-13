@@ -46,13 +46,13 @@ namespace Flux {
         initInfo.ApiVersion = VK_API_VERSION_1_2;
         initInfo.Instance = vkDevice.GetInstance();
         initInfo.PhysicalDevice = vkDevice.GetPhysicalDevice();
-        initInfo.Device = vkDevice.GetHandle();
+        initInfo.Device = vkDevice.GetHandle<VkDevice>();
         initInfo.QueueFamily = vkDevice.GetGraphicsQueueFamily();
         initInfo.Queue = vkDevice.GetGraphicsQueue();
         initInfo.DescriptorPool = vkDevice.GetDescriptorPool();
         initInfo.MinImageCount = 2;
         initInfo.ImageCount = vkSwapchain.GetImageCount();
-        initInfo.PipelineInfoMain.RenderPass = static_cast<VulkanRenderPass&>(app.GetImGuiRenderPass()).GetHandle();
+        initInfo.PipelineInfoMain.RenderPass = app.GetImGuiRenderPass().GetHandle<VkRenderPass>();
 
         ImGui_ImplVulkan_Init(&initInfo);
 
@@ -62,7 +62,7 @@ namespace Flux {
     void ImGuiLayer::OnDetach()
     {
         auto& vkDevice = static_cast<VulkanDevice&>(Application::Get().GetDevice());
-        vkDeviceWaitIdle(vkDevice.GetHandle());
+        vkDeviceWaitIdle(vkDevice.GetHandle<VkDevice>());
 
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplGlfw_Shutdown();
@@ -94,7 +94,7 @@ namespace Flux {
 
         // берём VkCommandBuffer из CommandList
         auto* cmdList = static_cast<VulkanCommandList*>(app.GetDevice().GetCommandList(frameIndex));
-        VkCommandBuffer cmd = cmdList->GetHandle();
+        VkCommandBuffer cmd = cmdList->GetHandle<VkCommandBuffer>();
 
         ImGui::Render();
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
