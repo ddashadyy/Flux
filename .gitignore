@@ -12,4 +12,6 @@ bin-int/
 *.vcxproj.user
 
 SandBox/imgui.ini
+SandBox/assets/models
+SandBox/assets/textures
 *.*.spv
