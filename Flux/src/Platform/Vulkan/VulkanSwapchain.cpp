@@ -55,7 +55,7 @@ namespace Flux {
 
     uint32_t VulkanSwapchain::AcquireNextImage(RHISemaphore* semaphore)
     {
-        VkSemaphore vkSemaphore = static_cast<VulkanSemaphore*>(semaphore)->GetHandle();
+        auto vkSemaphore = semaphore->GetHandle<VkSemaphore>();
 
         vkAcquireNextImageKHR(m_Device, m_Swapchain, UINT64_MAX,
             vkSemaphore, VK_NULL_HANDLE, &m_CurrentImageIndex);
@@ -65,7 +65,7 @@ namespace Flux {
 
     void VulkanSwapchain::Present(RHISemaphore* semaphore, uint32_t imageIndex)
     {
-        VkSemaphore vkSemaphore = static_cast<VulkanSemaphore*>(semaphore)->GetHandle();
+        auto vkSemaphore = semaphore->GetHandle<VkSemaphore>();
 
         VkPresentInfoKHR presentInfo{};
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;

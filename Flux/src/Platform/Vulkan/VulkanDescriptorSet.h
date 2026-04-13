@@ -12,15 +12,16 @@ namespace Flux {
         VulkanDescriptorSetLayout(VkDevice device, const DescriptorSetLayoutDesc& desc);
         ~VulkanDescriptorSetLayout();
 
-        inline uint32_t GetBindingCount() const override { return static_cast<uint32_t>(m_Desc.Bindings.size()); }
-
-		inline VkDescriptorSetLayout GetHandle() const { return m_Layout; }
+        uint32_t GetBindingCount() const override { return static_cast<uint32_t>(m_Desc.Bindings.size()); }
 
     private:
         VkDevice                m_Device = VK_NULL_HANDLE;
         VkDescriptorSetLayout   m_Layout = VK_NULL_HANDLE;
 
         DescriptorSetLayoutDesc m_Desc{};
+
+    protected:
+        void* GetHandleImpl() const override { return m_Layout; }
     };
 
 
@@ -34,7 +35,6 @@ namespace Flux {
         void BindTexture(uint32_t binding, const RHITexture* texture) override;
         void Update() override;
 
-		inline VkDescriptorSet GetHandle() const { return m_DescriptorSet; }
 
     private:
         VkDevice         m_Device        = VK_NULL_HANDLE;
@@ -44,5 +44,8 @@ namespace Flux {
         std::vector<VkWriteDescriptorSet>   m_PendingWrites;
         std::vector<VkDescriptorBufferInfo> m_BufferInfos;
         std::vector<VkDescriptorImageInfo>  m_ImageInfos;
+
+    protected:
+        void* GetHandleImpl() const override { return m_DescriptorSet; }
     };
 }

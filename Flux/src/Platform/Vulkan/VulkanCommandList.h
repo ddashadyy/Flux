@@ -14,8 +14,6 @@ namespace Flux {
         VulkanCommandList(VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, VulkanSwapchain* swapchain);
         ~VulkanCommandList();
 
-        inline VkCommandBuffer GetHandle() const { return m_CommandBuffer; }
-
         void Begin() override;
         void End() override;
 
@@ -51,6 +49,9 @@ namespace Flux {
         VkCommandPool    m_CommandPool = VK_NULL_HANDLE;
         VkCommandBuffer  m_CommandBuffer = VK_NULL_HANDLE;
         VkPipelineLayout m_CurrentPipelineLayout = VK_NULL_HANDLE;
+
+    protected:
+        void* GetHandleImpl() const override { return m_CommandBuffer; }
 
     };
 }

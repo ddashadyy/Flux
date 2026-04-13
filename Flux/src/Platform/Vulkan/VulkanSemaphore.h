@@ -17,11 +17,12 @@ namespace Flux {
 		void Signal() override {};
 		void Wait()   override {};
 
-		inline VkSemaphore GetHandle() const { return m_Semaphore; }
-
 	private:
 		VkDevice    m_Device    = VK_NULL_HANDLE;
 		VkSemaphore m_Semaphore = VK_NULL_HANDLE;
+
+	protected:
+		void* GetHandleImpl() const override { return m_Semaphore; }
 
 	};
 }

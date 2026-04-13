@@ -18,12 +18,13 @@ namespace Flux {
 
         inline const RenderPassDesc& GetDesc() const override { return m_Desc; }
 
-        inline VkRenderPass GetHandle() const { return m_RenderPass; }
 
     private:
         VkDevice       m_Device     = VK_NULL_HANDLE;
+        VkRenderPass   m_RenderPass = VK_NULL_HANDLE;
         RenderPassDesc m_Desc{};
 
-        VkRenderPass   m_RenderPass = VK_NULL_HANDLE;
+    protected:
+        void* GetHandleImpl() const override { return m_RenderPass; }
     };
 }

@@ -91,7 +91,7 @@ namespace Flux {
 		const auto* vulkanBuffer = static_cast<const VulkanBuffer*>(buffer);
 
 		VkDescriptorBufferInfo bufferInfo{};
-		bufferInfo.buffer = vulkanBuffer->GetHandle();
+		bufferInfo.buffer = vulkanBuffer->GetHandle<VkBuffer>();
 		bufferInfo.offset = 0;
 		bufferInfo.range = vulkanBuffer->GetSize();
 
@@ -134,6 +134,16 @@ namespace Flux {
 
 	void VulkanDescriptorSet::Update()
 	{
+		std::vector<VkDescriptorBufferInfo> bufferInfosCopy = std::move(m_BufferInfos);
+		std::vector<VkDescriptorImageInfo> imageInfosCopy = std::move(m_ImageInfos);
+
+		size_t bufIdx = 0, imgIdx = 0;
+		for (auto& write : m_PendingWrites)
+		{
+			if (write.pBufferInfo) write.pBufferInfo = &bufferInfosCopy[bufIdx++];
+			if (write.pImageInfo) write.pImageInfo = &imageInfosCopy[imgIdx++];
+		}
+
 		vkUpdateDescriptorSets(m_Device,
 			static_cast<uint32_t>(m_PendingWrites.size()),
 			m_PendingWrites.data(),
@@ -141,8 +151,6 @@ namespace Flux {
 		);
 
 		m_PendingWrites.clear();
-		m_BufferInfos.clear();
-		m_ImageInfos.clear();
 	}
 
 }

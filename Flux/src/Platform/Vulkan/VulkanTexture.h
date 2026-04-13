@@ -17,16 +17,16 @@ namespace Flux {
 			const TextureSpec& spec);
 		~VulkanTexture();
 
-		inline uint32_t GetWidth()     const override { return m_Spec.Width; }
-		inline uint32_t GetHeight()    const override { return m_Spec.Height; }
-		inline Format   GetFormat()    const override { return m_Spec.ImageFormat; }
-		inline uint32_t GetMipLevels() const override { return m_Spec.MipLevels; }
+		uint32_t GetWidth()     const override { return m_Spec.Width; }
+		uint32_t GetHeight()    const override { return m_Spec.Height; }
+		Format   GetFormat()    const override { return m_Spec.ImageFormat; }
+		uint32_t GetMipLevels() const override { return m_Spec.MipLevels; }
 
 		void SetData(const void* data, uint32_t size) override;
 
-		inline VkImage     GetImage()     const { return m_Image; }
-		inline VkImageView GetImageView() const { return m_ImageView; }
-		inline VkSampler   GetSampler()   const { return m_Sampler; }
+		VkImage     GetImage()     const { return m_Image; }
+		VkImageView GetImageView() const { return m_ImageView; }
+		VkSampler   GetSampler()   const { return m_Sampler; }
 
 	private:
 		void TransitionImageLayout(VkImageLayout oldLayout, VkImageLayout newLayout);

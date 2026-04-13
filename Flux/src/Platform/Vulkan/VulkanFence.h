@@ -16,10 +16,11 @@ namespace Flux {
 		void Reset() override;
 		bool IsSignaled() const override;
 
-		inline VkFence GetHandle() const { return m_Fence; }
-		
 	private:
 		VkDevice m_Device = VK_NULL_HANDLE;
 		VkFence  m_Fence  = VK_NULL_HANDLE;
+
+	protected:
+		void* GetHandleImpl() const override { return m_Fence; }
 	};
 }

@@ -17,11 +17,12 @@ namespace Flux {
 
         const FramebufferSpec& GetSpec() const override { return m_Spec; }
 
-        VkFramebuffer GetHandle() const { return m_Framebuffer; }
-
     private:
         VkDevice       m_Device = VK_NULL_HANDLE;
         VkFramebuffer  m_Framebuffer = VK_NULL_HANDLE;
         FramebufferSpec m_Spec{};
+
+    protected:
+        void* GetHandleImpl() const override { return m_Framebuffer; }
     };
 }

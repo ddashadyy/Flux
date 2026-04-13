@@ -342,8 +342,8 @@ namespace Flux {
 
     Scope<RHIDescriptorSet> VulkanDevice::CreateDescriptorSet(const RHIDescriptorSetLayout* layout)
     {
-        auto* vkLayout = static_cast<const VulkanDescriptorSetLayout*>(layout);
-        return CreateScope<VulkanDescriptorSet>(m_Device, m_DescriptorPool, vkLayout->GetHandle());
+        auto vkLayout = layout->GetHandle<VkDescriptorSetLayout>();
+        return CreateScope<VulkanDescriptorSet>(m_Device, m_DescriptorPool, vkLayout);
     }
 
     DeviceMemoryStats VulkanDevice::GetMemoryStatistics() const

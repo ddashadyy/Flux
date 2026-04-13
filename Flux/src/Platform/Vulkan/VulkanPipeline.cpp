@@ -86,12 +86,12 @@ namespace Flux {
 
         shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-        shaderStages[0].module = vertShader->GetHandle();
+        shaderStages[0].module = vertShader->GetHandle<VkShaderModule>();
         shaderStages[0].pName = vertShader->GetEntryPoint().c_str();
 
         shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-        shaderStages[1].module = fragShader->GetHandle();
+        shaderStages[1].module = fragShader->GetHandle<VkShaderModule>();
         shaderStages[1].pName = fragShader->GetEntryPoint().c_str();
 
         // Vertex input
@@ -187,7 +187,7 @@ namespace Flux {
         pipelineInfo.pColorBlendState = &colorBlend;
         pipelineInfo.pDynamicState = &dynamicState;
         pipelineInfo.layout = m_PipelineLayout;
-        pipelineInfo.renderPass = static_cast<const VulkanRenderPass*>(desc.RenderPass)->GetHandle();
+        pipelineInfo.renderPass = desc.RenderPass->GetHandle<VkRenderPass>();
         pipelineInfo.subpass = 0;
 
         FL_CORE_ASSERT(vkCreateGraphicsPipelines(m_Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline) == VK_SUCCESS,
@@ -205,8 +205,7 @@ namespace Flux {
 
     void VulkanPipeline::CreatePipelineLayout()
     {
-        VkDescriptorSetLayout descriptorSetLayout =
-            static_cast<const VulkanDescriptorSetLayout*>(m_Desc.DescriptorSetLayout)->GetHandle();
+        auto descriptorSetLayout = m_Desc.DescriptorSetLayout->GetHandle<VkDescriptorSetLayout>();
 
         VkPipelineLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

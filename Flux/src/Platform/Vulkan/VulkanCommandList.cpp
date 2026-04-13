@@ -131,9 +131,9 @@ namespace Flux {
 
     void VulkanCommandList::Submit(RHIFence* fence, RHISemaphore* waitSemaphore, RHISemaphore* signalSemaphore)
     {
-        VkSemaphore waitSem   = waitSemaphore   ? static_cast<VulkanSemaphore*>(waitSemaphore)->GetHandle() : VK_NULL_HANDLE;
-        VkSemaphore signalSem = signalSemaphore ? static_cast<VulkanSemaphore*>(signalSemaphore)->GetHandle() : VK_NULL_HANDLE;
-        VkFence     vkFence   = fence           ? static_cast<VulkanFence*>(fence)->GetHandle() : VK_NULL_HANDLE;
+        VkSemaphore waitSem   = waitSemaphore   ? waitSemaphore->GetHandle<VkSemaphore>() : VK_NULL_HANDLE;
+        VkSemaphore signalSem = signalSemaphore ? signalSemaphore->GetHandle<VkSemaphore>() : VK_NULL_HANDLE;
+        VkFence     vkFence   = fence           ? fence->GetHandle<VkFence>() : VK_NULL_HANDLE;
 
         VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
@@ -163,8 +163,8 @@ namespace Flux {
 
         VkRenderPassBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        beginInfo.renderPass = vkPass->GetHandle();
-        beginInfo.framebuffer = vkFb->GetHandle();
+        beginInfo.renderPass = vkPass->GetHandle<VkRenderPass>();
+        beginInfo.framebuffer = vkFb->GetHandle<VkFramebuffer>();
         beginInfo.renderArea.offset = { 0, 0 };
         beginInfo.renderArea.extent = { vkFb->GetWidth(), vkFb->GetHeight() };
         beginInfo.clearValueCount = vkPass->HasDepthAttachment() ? 2 : 1;
@@ -204,9 +204,9 @@ namespace Flux {
     void VulkanCommandList::SetPipeline(RHIPipeline* pipeline)
     {
         auto* vkPipeline = static_cast<VulkanPipeline*>(pipeline);
-        m_CurrentPipelineLayout = vkPipeline->GetLayout();
+        m_CurrentPipelineLayout = vkPipeline->GetLayout<VkPipelineLayout>();
 
-        vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline->GetHandle());
+        vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline->GetHandle<VkPipeline>());
     }
 
     void VulkanCommandList::PushConstants(RHIPipeline* pipeline, const void* pushConstants)
@@ -216,7 +216,7 @@ namespace Flux {
 
         vkCmdPushConstants(
             m_CommandBuffer,
-            vkPipeline->GetLayout(),
+            vkPipeline->GetLayout<VkPipelineLayout>(),
             GetShaderStageFlags(pipelineLayoutDesc.Stage),
             pipelineLayoutDesc.Offset,
             pipelineLayoutDesc.Size,
@@ -226,20 +226,20 @@ namespace Flux {
 
     void VulkanCommandList::BindVertexBuffer(RHIBuffer* buffer)
     {
-        VkBuffer     vkBuffer = static_cast<VulkanBuffer*>(buffer)->GetHandle();
+        auto vkBuffer = buffer->GetHandle<VkBuffer>();
         VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(m_CommandBuffer, 0, 1, &vkBuffer, &offset);
     }
 
     void VulkanCommandList::BindIndexBuffer(RHIBuffer* buffer)
     {
-        VkBuffer vkBuffer = static_cast<VulkanBuffer*>(buffer)->GetHandle();
+        auto vkBuffer = buffer->GetHandle<VkBuffer>();
         vkCmdBindIndexBuffer(m_CommandBuffer, vkBuffer, 0, VK_INDEX_TYPE_UINT32);
     }
 
     void VulkanCommandList::BindDescriptorSet(RHIDescriptorSet* descriptorSet)
     {
-        VkDescriptorSet set = static_cast<VulkanDescriptorSet*>(descriptorSet)->GetHandle();
+        auto set = descriptorSet->GetHandle<VkDescriptorSet>();
         vkCmdBindDescriptorSets(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
             m_CurrentPipelineLayout, 0, 1, &set, 0, nullptr);
     }

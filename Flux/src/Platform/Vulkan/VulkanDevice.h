@@ -27,22 +27,21 @@ namespace Flux {
         Scope<RHIDescriptorSetLayout> CreateDescriptorSetLayout(const DescriptorSetLayoutDesc& desc) override;
         Scope<RHIDescriptorSet>       CreateDescriptorSet(const RHIDescriptorSetLayout* layout)  override;
 
-        inline RHICommandList* GetCommandList(uint32_t index = 0) override { return m_CommandLists[index].get(); }
-        inline RHISwapchain* GetSwapchain()     override { return m_Swapchain.get(); }
+        RHICommandList* GetCommandList(uint32_t index = 0) override { return m_CommandLists[index].get(); }
+        RHISwapchain* GetSwapchain()     override { return m_Swapchain.get(); }
 
         DeviceMemoryStats GetMemoryStatistics() const override;
 
         VkCommandBuffer BeginSingleTimeCommands();
         void            EndSingleTimeCommands(VkCommandBuffer cmd);
 
-        inline VkDevice         GetHandle()          const { return m_Device; }
-        inline VkPhysicalDevice GetPhysicalDevice()  const { return m_PhysicalDevice; }
-        inline VmaAllocator     GetAllocator()       const { return m_Allocator; }
-        inline VkDescriptorPool GetDescriptorPool()  const { return m_DescriptorPool; }
+        VkPhysicalDevice GetPhysicalDevice()  const { return m_PhysicalDevice; }
+        VmaAllocator     GetAllocator()       const { return m_Allocator; }
+        VkDescriptorPool GetDescriptorPool()  const { return m_DescriptorPool; }
 
-        inline VkInstance  GetInstance()            const { return m_Instance; }
-        inline uint32_t    GetGraphicsQueueFamily() const { return m_GraphicsQueueFamilyIndex; }
-        inline VkQueue     GetGraphicsQueue()       const { return m_GraphicsQueue; }
+        VkInstance  GetInstance()            const { return m_Instance; }
+        uint32_t    GetGraphicsQueueFamily() const { return m_GraphicsQueueFamilyIndex; }
+        VkQueue     GetGraphicsQueue()       const { return m_GraphicsQueue; }
 
     private:
         void CreateInstance();
@@ -73,6 +72,9 @@ namespace Flux {
 
         Scope<VulkanSwapchain>   m_Swapchain;
         std::vector<Scope<VulkanCommandList>> m_CommandLists;
+
+    protected:
+        void* GetHandleImpl() const override { return m_Device; }
     };
 
 }

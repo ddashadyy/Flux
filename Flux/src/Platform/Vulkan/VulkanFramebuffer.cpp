@@ -20,7 +20,7 @@ namespace Flux {
 
         VkFramebufferCreateInfo fbInfo{};
         fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        fbInfo.renderPass = vkPass->GetHandle();
+        fbInfo.renderPass = vkPass->GetHandle<VkRenderPass>();
         fbInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
         fbInfo.pAttachments = attachments.data();
         fbInfo.width = m_Spec.Width;

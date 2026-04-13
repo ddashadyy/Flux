@@ -17,10 +17,8 @@ namespace Flux {
 		void* Map() override;
 		void  Unmap() override;
 
-		inline uint64_t    GetSize()  const override { return m_Spec.Size; }
-		inline BufferUsage GetUsage() const override { return m_Spec.Usage; }
-
-		inline VkBuffer    GetHandle() const { return m_Buffer; }
+		uint64_t    GetSize()   const override { return m_Spec.Size; }
+		BufferUsage GetUsage()  const override { return m_Spec.Usage; }
 
 	private:
 		BufferSpec m_Spec{};
@@ -28,6 +26,9 @@ namespace Flux {
 
 		VmaAllocator  m_Allocator  = VK_NULL_HANDLE;
 		VmaAllocation m_Allocation = VK_NULL_HANDLE;
+
+	protected:
+		void* GetHandleImpl() const override { return m_Buffer; }
 	};
 
 }

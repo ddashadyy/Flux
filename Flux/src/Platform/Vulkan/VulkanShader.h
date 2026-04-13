@@ -16,10 +16,8 @@ namespace Flux {
 		);
 		~VulkanShader();
 
-		inline ShaderStage        GetStage()      const override { return m_Stage; }
-		inline const std::string& GetEntryPoint() const override { return m_EntryPoint; }
-
-		inline VkShaderModule     GetHandle()     const { return m_Module; }
+		ShaderStage        GetStage()      const override { return m_Stage; }
+		const std::string& GetEntryPoint() const override { return m_EntryPoint; }
 
 	private:
 		VkDevice       m_Device     = VK_NULL_HANDLE;
@@ -27,5 +25,8 @@ namespace Flux {
 
 		ShaderStage    m_Stage      = ShaderStage::Vertex;
 		std::string    m_EntryPoint = "main";
+
+	protected:
+		void* GetHandleImpl() const override { return m_Module; }
 	};
 }

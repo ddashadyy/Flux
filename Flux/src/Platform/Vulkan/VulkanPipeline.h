@@ -17,10 +17,7 @@ namespace Flux {
         PipelineType GetType()  const override { return m_Desc.Type; }
 		bool         IsValid()  const override { return m_Pipeline != VK_NULL_HANDLE; }
 
-        VkPipeline            GetHandle()       const { return m_Pipeline; }
-        VkPipelineLayout      GetLayout()       const { return m_PipelineLayout; }
-
-        const PipelineLayoutDesc& GetLayoutDesc() const { return m_Desc.pipelineLayoutDesc; }
+        const PipelineLayoutDesc& GetLayoutDesc() const override { return m_Desc.pipelineLayoutDesc; }
 
     private: 
         void CreatePipelineLayout();
@@ -30,5 +27,9 @@ namespace Flux {
         VkPipeline       m_Pipeline = VK_NULL_HANDLE;
         VkPipelineLayout m_PipelineLayout = VK_NULL_HANDLE;
         PipelineDesc     m_Desc;
+
+    protected:
+        void* GetHandleImpl() const override { return m_Pipeline; }
+        void* GetLayoutImpl() const override { return m_PipelineLayout; }
     };
 }
