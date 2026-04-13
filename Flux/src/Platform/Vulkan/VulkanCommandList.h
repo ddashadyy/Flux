@@ -24,9 +24,11 @@ namespace Flux {
             RHISemaphore* signalSemaphore = nullptr) override;
 
         void BeginRenderPass(RHIRenderPass* renderPass, uint32_t imageIndex) override;
+        void BeginRenderPass(RHIRenderPass* renderPass, RHIFramebuffer* framebuffer) override;
         void EndRenderPass() override;
 
         void SetPipeline(RHIPipeline* pipeline) override;
+        void PushConstants(RHIPipeline* pipeline, const void* pushConstants) override;
 
         void BindVertexBuffer(RHIBuffer* buffer) override;
         void BindIndexBuffer(RHIBuffer* buffer) override;

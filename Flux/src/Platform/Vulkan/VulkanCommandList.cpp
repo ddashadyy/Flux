@@ -7,6 +7,7 @@
 #include "VulkanBuffer.h"
 #include "VulkanDescriptorSet.h"
 #include "VulkanTexture.h"
+#include "VulkanFramebuffer.h"
 
 namespace Flux {
 
@@ -66,6 +67,28 @@ namespace Flux {
 
         FL_CORE_ASSERT(false, "Unknown Resource State!");
         return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    }
+
+    static VkShaderStageFlags GetShaderStageFlags(ShaderStage stage)
+    {
+        VkShaderStageFlags flags = 0;
+
+        if (HasFlag(stage, ShaderStage::Vertex))
+            flags |= VK_SHADER_STAGE_VERTEX_BIT;
+
+        if (HasFlag(stage, ShaderStage::Fragment))
+            flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        if (HasFlag(stage, ShaderStage::Compute))
+            flags |= VK_SHADER_STAGE_COMPUTE_BIT;
+
+        if (flags == 0)
+        {
+            FL_CORE_ASSERT(false, "No Shader Stage specified!");
+        }
+
+        return flags;
+
     }
 
     VulkanCommandList::VulkanCommandList(VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, VulkanSwapchain* swapchain)
@@ -130,25 +153,23 @@ namespace Flux {
 
     void VulkanCommandList::BeginRenderPass(RHIRenderPass* renderPass, uint32_t imageIndex)
     {
+        auto* vkPass = static_cast<VulkanRenderPass*>(renderPass);
+
+        std::array<VkClearValue, 1> clearValues{};
+        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
 
         VkRenderPassBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        beginInfo.renderPass = m_Swapchain->GetNativceRenderPass();
+        beginInfo.renderPass = vkPass->GetHandle();
         beginInfo.framebuffer = m_Swapchain->GetFramebuffer(imageIndex);
         beginInfo.renderArea.offset = { 0, 0 };
         beginInfo.renderArea.extent = m_Swapchain->GetExtent();
-
-        std::array<VkClearValue, 2> clearValues{};
-        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
-        clearValues[1].depthStencil = { 1.0f, 0 };
-        beginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+        beginInfo.clearValueCount = 1;
         beginInfo.pClearValues = clearValues.data();
 
         vkCmdBeginRenderPass(m_CommandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
         VkViewport viewport{};
-        viewport.x = 0.0f;
-        viewport.y = 0.0f;
         viewport.width = static_cast<float>(m_Swapchain->GetExtent().width);
         viewport.height = static_cast<float>(m_Swapchain->GetExtent().height);
         viewport.minDepth = 0.0f;
@@ -156,8 +177,39 @@ namespace Flux {
         vkCmdSetViewport(m_CommandBuffer, 0, 1, &viewport);
 
         VkRect2D scissor{};
-        scissor.offset = { 0, 0 };
         scissor.extent = m_Swapchain->GetExtent();
+        vkCmdSetScissor(m_CommandBuffer, 0, 1, &scissor);
+    }
+
+    void VulkanCommandList::BeginRenderPass(RHIRenderPass* renderPass, RHIFramebuffer* framebuffer)
+    {
+        auto* vkPass = static_cast<VulkanRenderPass*>(renderPass);
+        auto* vkFb = static_cast<VulkanFramebuffer*>(framebuffer);
+
+        std::array<VkClearValue, 2> clearValues{};
+        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+        clearValues[1].depthStencil = { 1.0f, 0 };
+
+        VkRenderPassBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        beginInfo.renderPass = vkPass->GetHandle();
+        beginInfo.framebuffer = vkFb->GetHandle();
+        beginInfo.renderArea.offset = { 0, 0 };
+        beginInfo.renderArea.extent = { vkFb->GetWidth(), vkFb->GetHeight() };
+        beginInfo.clearValueCount = vkPass->HasDepthAttachment() ? 2 : 1;
+        beginInfo.pClearValues = clearValues.data();
+
+        vkCmdBeginRenderPass(m_CommandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+        VkViewport viewport{};
+        viewport.width = static_cast<float>(vkFb->GetWidth());
+        viewport.height = static_cast<float>(vkFb->GetHeight());
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        vkCmdSetViewport(m_CommandBuffer, 0, 1, &viewport);
+
+        VkRect2D scissor{};
+        scissor.extent = { vkFb->GetWidth(), vkFb->GetHeight() };
         vkCmdSetScissor(m_CommandBuffer, 0, 1, &scissor);
     }
 
@@ -173,6 +225,21 @@ namespace Flux {
         m_CurrentPipelineLayout = vkPipeline->GetLayout();
 
         vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vkPipeline->GetHandle());
+    }
+
+    void VulkanCommandList::PushConstants(RHIPipeline* pipeline, const void* pushConstants)
+    {
+        auto* vkPipeline = static_cast<VulkanPipeline*>(pipeline);
+        auto pipelineLayoutDesc = vkPipeline->GetLayoutDesc();
+
+        vkCmdPushConstants(
+            m_CommandBuffer,
+            vkPipeline->GetLayout(),
+            GetShaderStageFlags(pipelineLayoutDesc.Stage),
+            pipelineLayoutDesc.Offset,
+            pipelineLayoutDesc.Size,
+            pushConstants
+        );
     }
 
     void VulkanCommandList::BindVertexBuffer(RHIBuffer* buffer)
