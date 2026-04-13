@@ -303,7 +303,6 @@ public:
         auto* device = &Flux::Application::Get().GetDevice();
         auto* swapchain = device->GetSwapchain();
 
-        // Пересоздаём depth texture под новый размер
         Flux::TextureSpec depthSpec{};
         depthSpec.Width = width;
         depthSpec.Height = height;
@@ -312,7 +311,6 @@ public:
         depthSpec.Usage = Flux::TextureUsage::DepthStencil;
         m_DepthTexture = device->CreateTexture(depthSpec);
 
-        // Пересоздаём framebuffer'ы
         uint32_t imageCount = swapchain->GetImageCount();
         m_SceneFramebuffers.resize(imageCount);
         for (uint32_t i = 0; i < imageCount; i++)
