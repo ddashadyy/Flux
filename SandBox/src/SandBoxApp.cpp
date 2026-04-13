@@ -207,6 +207,8 @@ public:
         m_UniformBuffer->SetData(&globalUBO, sizeof(UBO));
 
         cmdList->BeginRenderPass(m_SceneRenderPass.get(), m_SceneFramebuffers[imageIndex].get());
+        cmdList->SetViewport(0, 0, (float)window.GetWidth(), (float)window.GetHeight());
+        cmdList->SetScissor(0, 0, window.GetWidth(), window.GetHeight());
         cmdList->SetPipeline(m_Pipeline.get());
         cmdList->BindDescriptorSet(m_DescriptorSet.get());
         cmdList->BindVertexBuffer(m_VertexBuffer.get());
