@@ -92,11 +92,11 @@ namespace Flux {
     }
 
     VulkanCommandList::VulkanCommandList(VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, VulkanSwapchain* swapchain)
-        : m_Device(device), m_CommandPool(commandPool), m_GraphicsQueue(graphicsQueue), m_Swapchain(swapchain)
+        : m_Device(device), m_CommandPool(commandPool), m_GraphicsQueue(graphicsQueue)
     {
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.commandPool = m_CommandPool; // Используем общий пул
+        allocInfo.commandPool = m_CommandPool; 
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandBufferCount = 1;
 
@@ -151,43 +151,14 @@ namespace Flux {
             "Failed to submit Command Buffer");
     }
 
-    void VulkanCommandList::BeginRenderPass(RHIRenderPass* renderPass, uint32_t imageIndex)
-    {
-        auto* vkPass = static_cast<VulkanRenderPass*>(renderPass);
-
-        std::array<VkClearValue, 1> clearValues{};
-        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
-
-        VkRenderPassBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        beginInfo.renderPass = vkPass->GetHandle();
-        beginInfo.framebuffer = m_Swapchain->GetFramebuffer(imageIndex);
-        beginInfo.renderArea.offset = { 0, 0 };
-        beginInfo.renderArea.extent = m_Swapchain->GetExtent();
-        beginInfo.clearValueCount = 1;
-        beginInfo.pClearValues = clearValues.data();
-
-        vkCmdBeginRenderPass(m_CommandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        VkViewport viewport{};
-        viewport.width = static_cast<float>(m_Swapchain->GetExtent().width);
-        viewport.height = static_cast<float>(m_Swapchain->GetExtent().height);
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(m_CommandBuffer, 0, 1, &viewport);
-
-        VkRect2D scissor{};
-        scissor.extent = m_Swapchain->GetExtent();
-        vkCmdSetScissor(m_CommandBuffer, 0, 1, &scissor);
-    }
-
-    void VulkanCommandList::BeginRenderPass(RHIRenderPass* renderPass, RHIFramebuffer* framebuffer)
+    
+    void VulkanCommandList::BeginRenderPass(RHIRenderPass* renderPass, RHIFramebuffer* framebuffer, glm::vec4 clearColor)
     {
         auto* vkPass = static_cast<VulkanRenderPass*>(renderPass);
         auto* vkFb = static_cast<VulkanFramebuffer*>(framebuffer);
 
         std::array<VkClearValue, 2> clearValues{};
-        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+        clearValues[0].color = { clearColor.r, clearColor.g, clearColor.b, clearColor.a };
         clearValues[1].depthStencil = { 1.0f, 0 };
 
         VkRenderPassBeginInfo beginInfo{};
@@ -200,22 +171,33 @@ namespace Flux {
         beginInfo.pClearValues = clearValues.data();
 
         vkCmdBeginRenderPass(m_CommandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        VkViewport viewport{};
-        viewport.width = static_cast<float>(vkFb->GetWidth());
-        viewport.height = static_cast<float>(vkFb->GetHeight());
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(m_CommandBuffer, 0, 1, &viewport);
-
-        VkRect2D scissor{};
-        scissor.extent = { vkFb->GetWidth(), vkFb->GetHeight() };
-        vkCmdSetScissor(m_CommandBuffer, 0, 1, &scissor);
     }
 
     void VulkanCommandList::EndRenderPass()
     {
         vkCmdEndRenderPass(m_CommandBuffer);
+    }
+
+    void VulkanCommandList::SetViewport(float x, float y, float width, float height, float minDepth, float maxDepth)
+    {
+        VkViewport viewport{};
+        viewport.x = x;
+		viewport.y = y;
+        viewport.width = width;
+		viewport.height = height;
+		viewport.minDepth = minDepth;
+		viewport.maxDepth = maxDepth;
+
+		vkCmdSetViewport(m_CommandBuffer, 0, 1, &viewport);
+    }
+
+    void VulkanCommandList::SetScissor(int32_t x, int32_t y, uint32_t width, uint32_t height)
+    {
+		VkRect2D scissor{};
+        scissor.offset = { x, y };
+        scissor.extent = { width, height };
+
+		vkCmdSetScissor(m_CommandBuffer, 0, 1, &scissor);
     }
 
 

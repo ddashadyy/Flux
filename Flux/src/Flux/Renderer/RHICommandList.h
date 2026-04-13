@@ -8,6 +8,8 @@
 #include "RHISemaphore.h"
 #include "RHIFramebuffer.h"
 
+#include <glm/glm.hpp>
+
 namespace Flux {
 
 
@@ -23,9 +25,12 @@ namespace Flux {
             RHISemaphore* waitSemaphore = nullptr,
             RHISemaphore* signalSemaphore = nullptr) = 0;
 
-        virtual void BeginRenderPass(RHIRenderPass* renderPass, uint32_t imageIndex)         = 0;
-        virtual void BeginRenderPass(RHIRenderPass* renderPass, RHIFramebuffer* framebuffer) = 0;
+        virtual void BeginRenderPass(RHIRenderPass* renderPass, RHIFramebuffer* framebuffer,
+            glm::vec4 clearColor = {0.0f, 0.0f, 0.0f, 1.0f}) = 0;
         virtual void EndRenderPass() = 0;
+
+        virtual void SetViewport(float x, float y, float width, float height, float minDepth = 0.0f, float maxDepth = 1.0f) = 0;
+        virtual void SetScissor(int32_t x, int32_t y, uint32_t width, uint32_t height) = 0;
 
         virtual void SetPipeline(RHIPipeline* pipeline)  = 0;
         virtual void PushConstants(RHIPipeline* pipeline, const void* pushConstants) = 0;

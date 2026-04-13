@@ -23,9 +23,12 @@ namespace Flux {
             RHISemaphore* waitSemaphore = nullptr,
             RHISemaphore* signalSemaphore = nullptr) override;
 
-        void BeginRenderPass(RHIRenderPass* renderPass, uint32_t imageIndex) override;
-        void BeginRenderPass(RHIRenderPass* renderPass, RHIFramebuffer* framebuffer) override;
+        void BeginRenderPass(RHIRenderPass* renderPass, RHIFramebuffer* framebuffer,
+            glm::vec4 clearColor = { 0.0f, 0.0f, 0.0f, 1.0f }) override;
         void EndRenderPass() override;
+
+        void SetViewport(float x, float y, float width, float height, float minDepth = 0.0f, float maxDepth = 1.0f) override;
+        void SetScissor(int32_t x, int32_t y, uint32_t width, uint32_t height) override;
 
         void SetPipeline(RHIPipeline* pipeline) override;
         void PushConstants(RHIPipeline* pipeline, const void* pushConstants) override;
@@ -49,6 +52,5 @@ namespace Flux {
         VkCommandBuffer  m_CommandBuffer = VK_NULL_HANDLE;
         VkPipelineLayout m_CurrentPipelineLayout = VK_NULL_HANDLE;
 
-        VulkanSwapchain* m_Swapchain = nullptr;
     };
 }
