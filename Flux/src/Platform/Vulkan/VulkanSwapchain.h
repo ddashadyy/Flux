@@ -1,6 +1,10 @@
 #pragma once
+
+
 #include "FLux/Renderer/RHISwapchain.h"
+
 #include "VulkanRenderPass.h"
+#include "VulkanSwapchainTexture.h"
 
 #include <vulkan/vulkan.h>
 
@@ -31,6 +35,9 @@ namespace Flux {
 
         inline uint32_t GetImageCount() const override { return static_cast<uint32_t>(m_Images.size()); }
 
+        inline RHITexture* GetColorTarget(uint32_t index) const override { return m_ColorTargets[index].get(); }
+
+
     private:
         void CreateSwapchain(uint32_t width, uint32_t height);
         void CreateImageViews();
@@ -53,6 +60,8 @@ namespace Flux {
         std::vector<VkImage>       m_Images       = {};
         std::vector<VkImageView>   m_ImageViews   = {};
         std::vector<VkFramebuffer> m_Framebuffers = {};
+
+        std::vector<Scope<VulkanSwapchainTexture>> m_ColorTargets = {};
     };
 
 }

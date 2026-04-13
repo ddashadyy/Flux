@@ -155,8 +155,10 @@ namespace Flux {
             RenderPassDesc rpDesc{};
             rpDesc.ColorFormats = { Format::B8G8R8A8_UNORM };
             rpDesc.HasDepth = false;
-            rpDesc.ColorLoadOp = AttachmentLoadOp::Clear;
+            rpDesc.ColorLoadOp = AttachmentLoadOp::Load;
             rpDesc.ColorStoreOp = AttachmentStoreOp::Store;
+            rpDesc.ColorInitialLayout = ImageLayout::ColorAttachment;
+            rpDesc.ColorFinalLayout = ImageLayout::Present;
             m_RenderPass = CreateScope<VulkanRenderPass>(m_Device, rpDesc);
         }
     }
@@ -164,6 +166,7 @@ namespace Flux {
     void VulkanSwapchain::CreateImageViews()
     {
         m_ImageViews.resize(m_Images.size());
+        m_ColorTargets.resize(m_Images.size());
 
         for (size_t i = 0; i < m_Images.size(); i++)
         {
@@ -180,6 +183,11 @@ namespace Flux {
 
             FL_CORE_ASSERT(vkCreateImageView(m_Device, &viewInfo, nullptr, &m_ImageViews[i]) == VK_SUCCESS,
                 "Failed to create Swapchain ImageView");
+
+            m_ColorTargets[i] = CreateScope<VulkanSwapchainTexture>(
+                m_Images[i], m_ImageViews[i], GetFormat(),
+                m_Extent.width, m_Extent.height
+            );
         }
     }
 
