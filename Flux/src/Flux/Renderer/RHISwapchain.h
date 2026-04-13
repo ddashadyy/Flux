@@ -24,8 +24,6 @@ namespace Flux {
         virtual Format      GetFormat() const = 0;
         virtual uint32_t    GetImageCount() const = 0;
         virtual RHITexture* GetColorTarget(uint32_t index) const = 0;
-
-        virtual RHIRenderPass* GetRenderPass() const = 0;
     };
 
 }
