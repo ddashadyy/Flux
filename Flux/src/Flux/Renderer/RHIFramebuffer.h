@@ -19,9 +19,15 @@ namespace Flux {
     public:
         virtual ~RHIFramebuffer() = default;
 
+        template<typename T>
+        T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
+
         virtual uint32_t GetWidth()  const = 0;
         virtual uint32_t GetHeight() const = 0;
 
         virtual const FramebufferSpec& GetSpec() const = 0;
+
+    protected:
+        virtual void* GetHandleImpl() const = 0;
     };
 }

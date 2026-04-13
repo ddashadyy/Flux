@@ -67,10 +67,20 @@ namespace Flux {
 	public:
 		virtual ~RHIPipeline() = default;
 
+		template<typename T>
+		T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
+
+		template<typename T>
+		T GetLayout() const { return reinterpret_cast<T>(GetLayoutImpl()); }
+
 		virtual PipelineType GetType()    const = 0;
 		virtual bool         IsValid()    const = 0;
 
 		virtual const PipelineLayoutDesc& GetLayoutDesc() const = 0;
+
+	protected:
+		virtual void* GetHandleImpl() const = 0;
+		virtual void* GetLayoutImpl() const = 0;
 	};
 
 }

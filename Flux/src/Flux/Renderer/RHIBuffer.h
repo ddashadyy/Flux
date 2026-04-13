@@ -34,6 +34,9 @@ namespace Flux {
 	public:
 		virtual ~RHIBuffer() = default;
 
+		template<typename T>
+		T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
+
 		virtual void* Map()   = 0;
 		virtual void  Unmap() = 0;
 
@@ -46,6 +49,9 @@ namespace Flux {
 			memcpy(ptr, data, size);
 			Unmap();
 		}
+
+	protected:
+		virtual void* GetHandleImpl() const = 0;
 	};
 
 }

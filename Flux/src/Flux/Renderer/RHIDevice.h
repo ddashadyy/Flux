@@ -34,6 +34,9 @@ namespace Flux {
     public:
         virtual ~RHIDevice() = default;
 
+        template<typename T>
+        T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
+
         virtual Scope<RHIBuffer>              CreateBuffer(const BufferSpec& spec) = 0;
         virtual Scope<RHITexture>             CreateTexture(const TextureSpec& spec) = 0;
         virtual Scope<RHIFramebuffer>         CreateFramebuffer(const FramebufferSpec& spec) = 0;
@@ -49,6 +52,9 @@ namespace Flux {
         virtual RHISwapchain* GetSwapchain() = 0;
 
         virtual DeviceMemoryStats GetMemoryStatistics() const = 0;
+
+    protected:
+        virtual void* GetHandleImpl() const = 0;
     };
 
 }

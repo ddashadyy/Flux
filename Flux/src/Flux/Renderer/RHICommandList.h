@@ -18,6 +18,9 @@ namespace Flux {
     public:
         virtual ~RHICommandList() = default;
 
+        template<typename T>
+        T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
+
         virtual void Begin() = 0;
         virtual void End() = 0;
 
@@ -46,6 +49,9 @@ namespace Flux {
         virtual void ResourceBarrier(RHITexture* texture,
             ResourceState oldState,
             ResourceState newState) = 0;
+
+    protected:
+        virtual void* GetHandleImpl() const = 0;
     };
 
 }
