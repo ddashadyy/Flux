@@ -25,6 +25,5 @@ namespace Flux {
         RenderPassDesc m_Desc{};
 
         VkRenderPass   m_RenderPass = VK_NULL_HANDLE;
-        std::vector<VkFramebuffer> m_Framebuffers = {};
     };
 }

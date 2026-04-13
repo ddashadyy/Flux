@@ -45,6 +45,20 @@ namespace Flux {
         return VK_ATTACHMENT_STORE_OP_NONE;
     }
 
+    static VkImageLayout GetImageLayout(ImageLayout layout)
+    {
+        switch (layout)
+        {
+        case ImageLayout::Undefined:              return VK_IMAGE_LAYOUT_UNDEFINED;
+        case ImageLayout::ColorAttachment:        return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        case ImageLayout::DepthStencilAttachment: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        case ImageLayout::ShaderReadOnly:         return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        case ImageLayout::Present:                return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        }
+        FL_CORE_ASSERT(false, "Unknown ImageLayout!");
+        return VK_IMAGE_LAYOUT_UNDEFINED;
+    }
+
 
     VulkanRenderPass::VulkanRenderPass(VkDevice device, const RenderPassDesc& desc)
         : m_Device(device), m_Desc(desc)
@@ -60,8 +74,8 @@ namespace Flux {
             color.storeOp = GetStoreOp(m_Desc.ColorStoreOp);
             color.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             color.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-            color.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            color.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+            color.initialLayout = GetImageLayout(m_Desc.ColorInitialLayout);
+            color.finalLayout = GetImageLayout(m_Desc.ColorFinalLayout);
 
             attachments.emplace_back(color);
         }
