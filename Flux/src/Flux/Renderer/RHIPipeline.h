@@ -1,7 +1,7 @@
 #pragma once
 
 
-#include "Flux/Core.h"
+#include "Flux/Core/Base.h"
 
 #include "RHIShader.h"
 #include "RHIDescriptorSet.h"

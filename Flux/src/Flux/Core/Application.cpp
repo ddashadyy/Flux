@@ -1,7 +1,7 @@
 #include "flpch.h"
 #include "Application.h"
-#include "Flux/Log.h"
-#include "Flux/Core.h"
+#include "Log.h"
+#include "Base.h"
 #include "Input.h"
 #include <GLFW/glfw3.h>
 

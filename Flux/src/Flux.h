@@ -3,13 +3,13 @@
 
 // For use Flux applications
 
-#include "Flux/Application.h"
-#include "Flux/Layer.h"
-#include "Flux/Log.h"
+#include "Flux/Core/Application.h"
+#include "Flux/Core/Layer.h"
+#include "Flux/Core/Log.h"
 
-#include "Flux/Input.h"
-#include "Flux/KeyCodes.h"
-#include "Flux/MouseButtonCodes.h"
+#include "Flux/Core/Input.h"
+#include "Flux/Core/KeyCodes.h"
+#include "Flux/Core/MouseButtonCodes.h"
 
 #include "Flux/ImGui/ImGuiLayer.h"
 
@@ -31,15 +31,16 @@
 #include "Flux/Renderer/RHIPipeline.h"
 #include "Flux/Renderer/RHIShader.h"
 #include "Flux/Renderer/RHITexture.h"
+#include "Flux/Renderer/RHIFence.h"
+#include "Flux/Renderer/RHISemaphore.h"
 
 #include "Flux/Renderer/RendererBackend.h"
 
-#include "Platform/Vulkan/VulkanRenderPass.h"
+
 
 // ------------------------
 
 // ---Entry Point-----------
-#include "Flux/EntryPoint.h"
-
+#include "Flux/Core/EntryPoint.h"
 
 // -------------------------

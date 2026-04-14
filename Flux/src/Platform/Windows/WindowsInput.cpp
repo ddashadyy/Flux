@@ -2,7 +2,7 @@
 #include "WindowsInput.h"
 
 #include <GLFW/glfw3.h>
-#include "Flux/Application.h"
+#include "Flux/Core/Application.h"
 
 namespace Flux {
 

@@ -2,7 +2,7 @@
 
 #include "flpch.h"
 
-#include "Flux/Core.h"
+#include "Base.h"
 #include "Flux/Events/Event.h"
 
 namespace Flux {

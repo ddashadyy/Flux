@@ -1,7 +1,7 @@
 #include "flpch.h"
 #include "RHIFactory.h"
 
-#include "Flux/Core.h"
+#include "Flux/Core/Base.h"
 #include "Platform/Vulkan/VulkanDevice.h"
 
 namespace Flux {

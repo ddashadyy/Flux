@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Flux/Window.h"
+#include "Flux/Core/Window.h"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>

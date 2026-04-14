@@ -1,7 +1,7 @@
 #pragma once
 
 
-#include "Flux/Core.h"
+#include "Base.h"
 
 namespace Flux {
 

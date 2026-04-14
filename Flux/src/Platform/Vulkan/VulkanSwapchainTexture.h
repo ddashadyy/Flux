@@ -2,7 +2,7 @@
 
 
 #include "Flux/Renderer/RHITexture.h"
-#include "Flux/Core.h"
+#include "Flux/Core/Base.h"
 
 #include <vulkan/vulkan.h>
 

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Flux/Core.h"
+#include "Flux/Core/Base.h"
 
-#include "spdlog/fmt/fmt.h"
+#include <spdlog/fmt/fmt.h>
 
 #include <string>
 #include <string_view>

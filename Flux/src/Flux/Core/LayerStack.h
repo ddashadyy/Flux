@@ -1,7 +1,7 @@
 #pragma once
 
 
-#include "Flux/Core.h"
+#include "Base.h"
 #include "Layer.h"
 
 #include <vector>

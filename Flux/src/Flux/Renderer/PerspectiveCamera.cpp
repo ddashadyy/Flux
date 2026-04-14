@@ -1,6 +1,6 @@
 #include "flpch.h"
 #include "PerspectiveCamera.h"
-#include "Flux/Core.h"
+#include "Flux/Core/Base.h"
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace Flux {
