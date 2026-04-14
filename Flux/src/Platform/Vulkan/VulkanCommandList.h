@@ -32,7 +32,7 @@ namespace Flux {
         void PushConstants(RHIPipeline* pipeline, const void* pushConstants) override;
 
         void BindVertexBuffer(RHIBuffer* buffer) override;
-        void BindIndexBuffer(RHIBuffer* buffer) override;
+        void BindIndexBuffer(RHIBuffer* buffer, IndexType indexType = IndexType::Uint32) override;
 
         void BindDescriptorSet(RHIDescriptorSet* descriptorSet) override;
 

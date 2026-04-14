@@ -231,10 +231,10 @@ namespace Flux {
         vkCmdBindVertexBuffers(m_CommandBuffer, 0, 1, &vkBuffer, &offset);
     }
 
-    void VulkanCommandList::BindIndexBuffer(RHIBuffer* buffer)
+    void VulkanCommandList::BindIndexBuffer(RHIBuffer* buffer, IndexType indexType)
     {
         auto vkBuffer = buffer->GetHandle<VkBuffer>();
-        vkCmdBindIndexBuffer(m_CommandBuffer, vkBuffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindIndexBuffer(m_CommandBuffer, vkBuffer, 0, indexType == IndexType::Uint16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
     }
 
     void VulkanCommandList::BindDescriptorSet(RHIDescriptorSet* descriptorSet)
