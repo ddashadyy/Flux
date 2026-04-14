@@ -39,7 +39,7 @@ namespace Flux {
         virtual void PushConstants(RHIPipeline* pipeline, const void* pushConstants) = 0;
 
         virtual void BindVertexBuffer(RHIBuffer* buffer) = 0;
-        virtual void BindIndexBuffer(RHIBuffer* buffer)  = 0;
+        virtual void BindIndexBuffer(RHIBuffer* buffer, IndexType indexType = IndexType::Uint32)  = 0;
 
         virtual void BindDescriptorSet(RHIDescriptorSet* descriptorSet) = 0;
 
