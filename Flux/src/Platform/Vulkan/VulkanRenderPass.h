@@ -16,7 +16,7 @@ namespace Flux {
         uint32_t GetColorAttachmentCount() const override { return static_cast<uint32_t>(m_Desc.ColorFormats.size()); }
         bool     HasDepthAttachment()      const override { return m_Desc.HasDepth; }
 
-        inline const RenderPassDesc& GetDesc() const override { return m_Desc; }
+        const RenderPassDesc& GetDesc() const override { return m_Desc; }
 
 
     private:
