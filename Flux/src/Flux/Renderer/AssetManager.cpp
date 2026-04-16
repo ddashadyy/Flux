@@ -12,6 +12,20 @@
 
 namespace Flux {
 
+	static std::vector<uint32_t> LoadSPIRV(const std::string& path)
+	{
+		std::ifstream file(path, std::ios::binary | std::ios::ate);
+		FL_CORE_ASSERT(file.is_open(), "Failed to open SPIRV file: {0}", path);
+
+		size_t fileSize = file.tellg();
+		std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
+
+		file.seekg(0);
+		file.read(reinterpret_cast<char*>(buffer.data()), fileSize);
+
+		return buffer;
+	}
+
 	template <typename T, typename Loader>
 	static Ref<T> LoadOrGetFromCache(AssetManager::CacheMap<std::string, T>& cache, const std::string& path, Loader loader)
 	{
@@ -90,11 +104,11 @@ namespace Flux {
 		}
 
 		MeshData meshData{};
+		meshData.Type = vertices.size() <= 65535 ? IndexType::Uint16 : IndexType::Uint32;
 		meshData.Vertices = std::move(vertices);
 		meshData.Indices = std::move(indices);
-		meshData.Type = IndexType::Uint32;
 
-		FL_CORE_INFO("Loaded mesh: {0}", path);
+		FL_CORE_INFO("Loaded mesh: {0} | Vertices: {1} | Indices: {2}", path, meshData.Vertices.size(), meshData.Indices.size());
 
 		return CreateRef<Mesh>(m_Device, meshData);
 	}
@@ -118,14 +132,51 @@ namespace Flux {
 		texture->SetData(data, width * height * 4);
 		stbi_image_free(data);
 
-		FL_CORE_INFO("");
+		FL_CORE_INFO("Loaded texture: {0} | {1}x{2} | Channels: 4", path, width, height);
 
 		return texture;
 	}
 
 	Ref<Material> AssetManager::LoadMaterialFromFile(const std::string& path)
 	{
-		return Ref<Material>();
+		std::ifstream file(path);
+		FL_CORE_ASSERT(file.is_open(), "Failed to open material file: {0}", path);
+
+		nlohmann::json json;
+		file >> json;
+
+		MaterialData matData{};
+		matData.VertexShaderSPIRV = LoadSPIRV(json["vertexShader"].get<std::string>());
+		matData.FragmentShaderSPIRV = LoadSPIRV(json["fragmentShader"].get<std::string>());
+
+		auto material = CreateRef<Material>(m_Device, matData);
+
+		// Текстуры (опциональные)
+		if (json.contains("albedo"))
+			material->SetTexture(1, LoadTexture(json["albedo"].get<std::string>()));
+
+		if (json.contains("normal"))
+			material->SetTexture(2, LoadTexture(json["normal"].get<std::string>()));
+
+		if (json.contains("roughnessMetallic"))
+			material->SetTexture(3, LoadTexture(json["roughnessMetallic"].get<std::string>()));
+
+		// Параметры (опциональные)
+		MaterialParams params{};
+		if (json.contains("baseColor"))
+		{
+			auto c = json["baseColor"];
+			params.BaseColor = { c[0], c[1], c[2], c[3] };
+		}
+		if (json.contains("roughness"))
+			params.Properties.x = json["roughness"].get<float>();
+		if (json.contains("metallic"))
+			params.Properties.y = json["metallic"].get<float>();
+
+		material->SetParams(params);
+
+		FL_CORE_INFO("Loaded material: {0}", path);
+		return material;
 	}
 
 
