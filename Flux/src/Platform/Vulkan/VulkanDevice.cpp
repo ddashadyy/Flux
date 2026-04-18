@@ -24,7 +24,75 @@ namespace Flux {
         const VkDebugUtilsMessengerCallbackDataEXT* data,
         void* userData)
     {
-        FL_CORE_ERROR("Vulkan Validation: {0}", data->pMessage);
+        const char* severityStr;
+        switch (severity) 
+        {
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: severityStr = "VERBOSE"; break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: severityStr = "INFO"; break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: severityStr = "WARNING"; break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: severityStr = "ERROR"; break;
+        default: severityStr = "UNKNOWN"; break;
+        }
+
+        const char* typeStr;
+        switch (type) 
+        {
+        case VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT: typeStr = "GENERAL"; break;
+        case VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT: typeStr = "VALIDATION"; break;
+        case VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT: typeStr = "PERFORMANCE"; break;
+        default: typeStr = "UNKNOWN"; break;
+        }
+
+        FL_CORE_ERROR("=== VULKAN VALIDATION [{}] ({}) ===", typeStr, severityStr);
+        FL_CORE_ERROR("Message: {}", data->pMessage);
+
+        if (data->pMessageIdName) 
+        {
+            FL_CORE_ERROR("Message ID: {}", data->pMessageIdName);
+        }
+
+        for (uint32_t i = 0; i < data->objectCount; i++) 
+        {
+            const char* objectTypeStr = "UNKNOWN";
+            switch (data->pObjects[i].objectType) 
+            {
+            case VK_OBJECT_TYPE_UNKNOWN: objectTypeStr = "UNKNOWN"; break;
+            case VK_OBJECT_TYPE_INSTANCE: objectTypeStr = "INSTANCE"; break;
+            case VK_OBJECT_TYPE_PHYSICAL_DEVICE: objectTypeStr = "PHYSICAL_DEVICE"; break;
+            case VK_OBJECT_TYPE_DEVICE: objectTypeStr = "DEVICE"; break;
+            case VK_OBJECT_TYPE_QUEUE: objectTypeStr = "QUEUE"; break;
+            case VK_OBJECT_TYPE_SEMAPHORE: objectTypeStr = "SEMAPHORE"; break;
+            case VK_OBJECT_TYPE_COMMAND_BUFFER: objectTypeStr = "COMMAND_BUFFER"; break;
+            case VK_OBJECT_TYPE_FENCE: objectTypeStr = "FENCE"; break;
+            case VK_OBJECT_TYPE_DEVICE_MEMORY: objectTypeStr = "DEVICE_MEMORY"; break;
+            case VK_OBJECT_TYPE_BUFFER: objectTypeStr = "BUFFER"; break;
+            case VK_OBJECT_TYPE_IMAGE: objectTypeStr = "IMAGE"; break;
+            case VK_OBJECT_TYPE_EVENT: objectTypeStr = "EVENT"; break;
+            case VK_OBJECT_TYPE_QUERY_POOL: objectTypeStr = "QUERY_POOL"; break;
+            case VK_OBJECT_TYPE_BUFFER_VIEW: objectTypeStr = "BUFFER_VIEW"; break;
+            case VK_OBJECT_TYPE_IMAGE_VIEW: objectTypeStr = "IMAGE_VIEW"; break;
+            case VK_OBJECT_TYPE_SHADER_MODULE: objectTypeStr = "SHADER_MODULE"; break;
+            case VK_OBJECT_TYPE_PIPELINE_CACHE: objectTypeStr = "PIPELINE_CACHE"; break;
+            case VK_OBJECT_TYPE_PIPELINE_LAYOUT: objectTypeStr = "PIPELINE_LAYOUT"; break;
+            case VK_OBJECT_TYPE_RENDER_PASS: objectTypeStr = "RENDER_PASS"; break;
+            case VK_OBJECT_TYPE_PIPELINE: objectTypeStr = "PIPELINE"; break;
+            case VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT: objectTypeStr = "DESCRIPTOR_SET_LAYOUT"; break;
+            case VK_OBJECT_TYPE_SAMPLER: objectTypeStr = "SAMPLER"; break;
+            case VK_OBJECT_TYPE_DESCRIPTOR_POOL: objectTypeStr = "DESCRIPTOR_POOL"; break;
+            case VK_OBJECT_TYPE_DESCRIPTOR_SET: objectTypeStr = "DESCRIPTOR_SET"; break;
+            case VK_OBJECT_TYPE_FRAMEBUFFER: objectTypeStr = "FRAMEBUFFER"; break;
+            case VK_OBJECT_TYPE_COMMAND_POOL: objectTypeStr = "COMMAND_POOL"; break;
+            default: objectTypeStr = "OTHER"; break;
+            }
+
+            FL_CORE_ERROR("  Object {}: type={}, handle=0x%llx, name='{}'",
+                i,
+                objectTypeStr,
+                (unsigned long long)data->pObjects[i].objectHandle,
+                data->pObjects[i].pObjectName ? data->pObjects[i].pObjectName : "unnamed");
+        }
+
+
         return VK_FALSE;
     }
 
@@ -360,6 +428,46 @@ namespace Flux {
         memStats.Budget = budgets->budget;
 
         return memStats;
+    }
+
+    void VulkanDevice::CopyBuffer(RHIBuffer* src, RHIBuffer* dst) const
+    {
+        VkBuffer srcBuffer = static_cast<VulkanBuffer*>(src)->GetHandle<VkBuffer>();
+        VkBuffer dstBuffer = static_cast<VulkanBuffer*>(dst)->GetHandle<VkBuffer>();
+        VkDeviceSize size = src->GetSize();
+
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandPool = m_TransferCommandPool; 
+        allocInfo.commandBufferCount = 1;
+
+        VkCommandBuffer commandBuffer;
+        vkAllocateCommandBuffers(m_Device, &allocInfo, &commandBuffer);
+
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+        vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+        VkBufferCopy copyRegion{};
+        copyRegion.srcOffset = 0;
+        copyRegion.dstOffset = 0;
+        copyRegion.size = size;
+        vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+        vkEndCommandBuffer(commandBuffer);
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer;
+
+        vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(m_GraphicsQueue);
+
+        vkFreeCommandBuffers(m_Device, m_TransferCommandPool, 1, &commandBuffer);
     }
 
     VkCommandBuffer VulkanDevice::BeginSingleTimeCommands()
