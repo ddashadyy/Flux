@@ -35,6 +35,8 @@ namespace Flux {
         Format              DepthFormat = Format::D32_SFLOAT;
         bool                HasDepth = false;
 
+        SampleCount         Samples = SampleCount::x1;
+
         AttachmentLoadOp  ColorLoadOp = AttachmentLoadOp::Clear;
         AttachmentStoreOp ColorStoreOp = AttachmentStoreOp::Store;
         AttachmentLoadOp  DepthLoadOp = AttachmentLoadOp::Clear;
