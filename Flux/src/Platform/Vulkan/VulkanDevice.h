@@ -32,6 +32,8 @@ namespace Flux {
 
         DeviceMemoryStats GetMemoryStatistics() const override;
 
+        void CopyBuffer(RHIBuffer* src, RHIBuffer* dst) const override;
+
         VkCommandBuffer BeginSingleTimeCommands();
         void            EndSingleTimeCommands(VkCommandBuffer cmd);
 
