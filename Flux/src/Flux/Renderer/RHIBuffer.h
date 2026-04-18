@@ -14,12 +14,13 @@ namespace Flux {
 
 	enum class BufferUsage : uint8_t
 	{
-		Vertex  = 1 << 0,
-		Index   = 1 << 1,
-		Uniform = 1 << 2,
-		Storage = 1 << 3,
-		Staging = 1 << 4
+		Vertex  = BIT(0),
+		Index   = BIT(1),
+		Uniform = BIT(2),
+		Storage = BIT(3),
+		Staging = BIT(4)
 	};
+	ENABLE_BITWISE_OPERATORS(BufferUsage);
 
 	struct BufferSpec
 	{
