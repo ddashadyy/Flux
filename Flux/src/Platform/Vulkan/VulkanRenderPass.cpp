@@ -1,24 +1,8 @@
 #include "flpch.h"
 #include "VulkanRenderPass.h"
-
+#include "VulkanCommon.h"
 
 namespace Flux {
-
-    static VkFormat GetFormat(Format format)
-    {
-        switch (format)
-        {
-        case Format::R8G8B8A8_UNORM:      return VK_FORMAT_R8G8B8A8_UNORM;
-        case Format::B8G8R8A8_UNORM:      return VK_FORMAT_B8G8R8A8_UNORM;
-        case Format::D32_SFLOAT:          return VK_FORMAT_D32_SFLOAT;
-        case Format::R32G32_SFLOAT:       return VK_FORMAT_R32G32_SFLOAT;
-        case Format::R32G32B32_SFLOAT:    return VK_FORMAT_R32G32B32_SFLOAT;
-        case Format::R32G32B32A32_SFLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
-        }
-
-        FL_CORE_ASSERT(false, "Unknown Format!");
-        return VK_FORMAT_UNDEFINED;
-    }
 
     static VkAttachmentLoadOp GetLoadOp(AttachmentLoadOp loadOp)
     {
@@ -59,42 +43,66 @@ namespace Flux {
         return VK_IMAGE_LAYOUT_UNDEFINED;
     }
 
-
     VulkanRenderPass::VulkanRenderPass(VkDevice device, const RenderPassDesc& desc)
         : m_Device(device), m_Desc(desc)
     {
+        bool msaa = (desc.Samples != SampleCount::x1);
+        VkSampleCountFlagBits sampleCount = GetSampleCount(desc.Samples);
+
         std::vector<VkAttachmentDescription> attachments{};
 
+        // 0: MSAA color (или обычный color если нет MSAA)
         for (auto& format : m_Desc.ColorFormats)
         {
             VkAttachmentDescription color{};
-            color.format = GetFormat(format);
-            color.samples = VK_SAMPLE_COUNT_1_BIT;
+            color.format = GetVkFormat(format);
+            color.samples = sampleCount;
             color.loadOp = GetLoadOp(m_Desc.ColorLoadOp);
-            color.storeOp = GetStoreOp(m_Desc.ColorStoreOp);
+            color.storeOp = msaa ? VK_ATTACHMENT_STORE_OP_DONT_CARE : GetStoreOp(m_Desc.ColorStoreOp);
             color.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             color.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
             color.initialLayout = GetImageLayout(m_Desc.ColorInitialLayout);
-            color.finalLayout = GetImageLayout(m_Desc.ColorFinalLayout);
-
+            color.finalLayout = msaa ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+                : GetImageLayout(m_Desc.ColorFinalLayout);
             attachments.emplace_back(color);
         }
 
+        // Depth
+        uint32_t depthIndex = static_cast<uint32_t>(attachments.size());
         if (m_Desc.HasDepth)
         {
             VkAttachmentDescription depth{};
-            depth.format = GetFormat(m_Desc.DepthFormat);
-            depth.samples = VK_SAMPLE_COUNT_1_BIT;
+            depth.format = GetVkFormat(m_Desc.DepthFormat);
+            depth.samples = sampleCount;
             depth.loadOp = GetLoadOp(m_Desc.DepthLoadOp);
-            depth.storeOp = GetStoreOp(m_Desc.DepthStoreOp);
+            depth.storeOp = msaa ? VK_ATTACHMENT_STORE_OP_DONT_CARE : GetStoreOp(m_Desc.DepthStoreOp);
             depth.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             depth.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
             depth.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
             depth.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
             attachments.emplace_back(depth);
         }
 
+        // Resolve attachment (только при MSAA)
+        uint32_t resolveIndex = static_cast<uint32_t>(attachments.size());
+        if (msaa)
+        {
+            for (auto& format : m_Desc.ColorFormats)
+            {
+                VkAttachmentDescription resolve{};
+                resolve.format = GetVkFormat(format);
+                resolve.samples = VK_SAMPLE_COUNT_1_BIT;
+                resolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+                resolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+                resolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+                resolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+                resolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                resolve.finalLayout = GetImageLayout(m_Desc.ColorFinalLayout);
+                attachments.emplace_back(resolve);
+            }
+        }
+
+        // Refs
         std::vector<VkAttachmentReference> colorRefs{};
         for (uint32_t i = 0; i < m_Desc.ColorFormats.size(); i++)
         {
@@ -105,17 +113,29 @@ namespace Flux {
         }
 
         VkAttachmentReference depthRef{};
-        depthRef.attachment = static_cast<uint32_t>(m_Desc.ColorFormats.size());
+        depthRef.attachment = depthIndex;
         depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        std::vector<VkAttachmentReference> resolveRefs{};
+        if (msaa)
+        {
+            for (uint32_t i = 0; i < m_Desc.ColorFormats.size(); i++)
+            {
+                VkAttachmentReference ref{};
+                ref.attachment = resolveIndex + i;
+                ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                resolveRefs.emplace_back(ref);
+            }
+        }
 
         VkSubpassDescription subpass{};
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         subpass.colorAttachmentCount = static_cast<uint32_t>(colorRefs.size());
         subpass.pColorAttachments = colorRefs.data();
         subpass.pDepthStencilAttachment = m_Desc.HasDepth ? &depthRef : nullptr;
+        subpass.pResolveAttachments = msaa ? resolveRefs.data() : nullptr;
 
         std::array<VkSubpassDependency, 2> dependencies{};
-
         dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
         dependencies[0].dstSubpass = 0;
         dependencies[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -132,8 +152,6 @@ namespace Flux {
 
         VkRenderPassCreateInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        renderPassInfo.pNext = nullptr;
-        renderPassInfo.flags = 0;
         renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
         renderPassInfo.pAttachments = attachments.data();
         renderPassInfo.subpassCount = 1;
