@@ -5,6 +5,14 @@
 
 namespace Flux {
 
+    enum class SampleCount : uint8_t
+    {
+        x1 = 1,
+        x2 = 2,
+        x4 = 4,
+        x8 = 8,
+    };
+
     enum class ShaderStage : uint8_t
     {
         Vertex   = BIT(0),
