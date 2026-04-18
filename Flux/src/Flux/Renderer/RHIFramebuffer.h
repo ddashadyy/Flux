@@ -9,7 +9,8 @@ namespace Flux {
     {
         RHIRenderPass* RenderPass = nullptr;
         std::vector<RHITexture*> ColorTargets = {}; // по одному на каждый swapchain image
-        RHITexture* DepthTarget = nullptr;
+        RHITexture* DepthTarget   = nullptr;
+        RHITexture* ResolveTarget = nullptr;
         uint32_t                 Width = 0;
         uint32_t                 Height = 0;
     };
