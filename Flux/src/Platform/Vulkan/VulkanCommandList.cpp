@@ -8,6 +8,7 @@
 #include "VulkanDescriptorSet.h"
 #include "VulkanTexture.h"
 #include "VulkanFramebuffer.h"
+#include "VulkanCommon.h"
 
 namespace Flux {
 
@@ -67,28 +68,6 @@ namespace Flux {
 
         FL_CORE_ASSERT(false, "Unknown Resource State!");
         return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    }
-
-    static VkShaderStageFlags GetShaderStageFlags(ShaderStage stage)
-    {
-        VkShaderStageFlags flags = 0;
-
-        if (HasFlag(stage, ShaderStage::Vertex))
-            flags |= VK_SHADER_STAGE_VERTEX_BIT;
-
-        if (HasFlag(stage, ShaderStage::Fragment))
-            flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
-
-        if (HasFlag(stage, ShaderStage::Compute))
-            flags |= VK_SHADER_STAGE_COMPUTE_BIT;
-
-        if (flags == 0)
-        {
-            FL_CORE_ASSERT(false, "No Shader Stage specified!");
-        }
-
-        return flags;
-
     }
 
     VulkanCommandList::VulkanCommandList(VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, VulkanSwapchain* swapchain)
@@ -237,11 +216,11 @@ namespace Flux {
 		vkCmdBindIndexBuffer(m_CommandBuffer, vkBuffer, 0, indexType == IndexType::Uint16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
     }
 
-    void VulkanCommandList::BindDescriptorSet(RHIDescriptorSet* descriptorSet)
+    void VulkanCommandList::BindDescriptorSet(uint32_t setIndex, RHIDescriptorSet* descriptorSet)
     {
         auto set = descriptorSet->GetHandle<VkDescriptorSet>();
         vkCmdBindDescriptorSets(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-            m_CurrentPipelineLayout, 0, 1, &set, 0, nullptr);
+            m_CurrentPipelineLayout, setIndex, 1, &set, 0, nullptr);
     }
 
     void VulkanCommandList::DrawIndexed(uint32_t indexCount, uint32_t instanceCount)
