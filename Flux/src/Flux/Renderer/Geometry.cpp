@@ -33,42 +33,4 @@ namespace Flux {
 		commandList.DrawIndexed(m_IndexCount);
 	}
 
-
-	Material::Material(RHIDevice& device, const MaterialData& materialData)
-	{
-		m_VertexShader = device.CreateShader(ShaderStage::Vertex, materialData.VertexShaderSPIRV);
-		m_FragmentShader = device.CreateShader(ShaderStage::Fragment, materialData.FragmentShaderSPIRV);
-
-		DescriptorSetLayoutDesc layoutDesc{};
-		layoutDesc.Bindings = {
-			{ 0, DescriptorType::UniformBuffer },
-			{ 1, DescriptorType::CombinedImageSampler },
-			{ 2, DescriptorType::CombinedImageSampler },
-			{ 3, DescriptorType::CombinedImageSampler },
-		};
-
-		m_DescriptorSetLayout = device.CreateDescriptorSetLayout(layoutDesc);
-		m_DescriptorSet = device.CreateDescriptorSet(m_DescriptorSetLayout.get());
-
-		BufferSpec paramsSpec{};
-		paramsSpec.Size = sizeof(MaterialParams);
-		paramsSpec.Usage = BufferUsage::Uniform;
-		paramsSpec.CpuVisible = true;
-
-		m_ParamsBuffer = device.CreateBuffer(paramsSpec);
-		m_ParamsBuffer->SetData(&m_Params, sizeof(MaterialParams));
-
-		m_DescriptorSet->BindBuffer(0, m_ParamsBuffer.get());
-	}
-
-	void Material::SetTexture(uint32_t binding, Ref<RHITexture> texture)
-	{
-		m_DescriptorSet->BindTexture(binding, texture.get());
-	}
-
-	void Material::SetParams(const MaterialParams& params)
-	{
-		m_Params = params;
-		m_ParamsBuffer->SetData(&m_Params, sizeof(MaterialParams));
-	}
 }

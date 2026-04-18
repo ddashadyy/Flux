@@ -15,6 +15,15 @@ namespace Flux {
         glm::vec3 Position;
         glm::vec3 Normal;
         glm::vec2 TexCoord;
+        glm::vec3 Tangent;   
+
+        bool operator == (const Vertex& other) const
+        {
+            return Position == other.Position &&
+                Normal == other.Normal &&
+                TexCoord == other.TexCoord &&
+                Tangent == other.Tangent;  
+        }
     };
 
     struct MeshData
@@ -39,40 +48,6 @@ namespace Flux {
 
         uint32_t m_IndexCount = 0;
 		IndexType m_IndexType = IndexType::Uint32;
-    };
-
-
-    struct MaterialParams
-    {
-        glm::vec4 BaseColor = { 1.0f, 1.0f, 1.0f, 1.0f }; // rgb = color, a = opacity
-        glm::vec4 Properties = { 0.5f, 0.0f, 0.0f, 0.0f }; // r = roughness, g = metallic
-    };
-
-    struct MaterialData
-    {
-        std::vector<uint32_t> VertexShaderSPIRV;
-        std::vector<uint32_t> FragmentShaderSPIRV;
-    };
-
-    class Material
-    {
-    public:
-        Material(RHIDevice& device, const MaterialData& materialData);
-
-        void SetTexture(uint32_t binding, Ref<RHITexture> texture);
-        void SetParams(const MaterialParams& params);
-
-        RHIShader& GetVertexShader()   const { return *m_VertexShader; }
-        RHIShader& GetFragmentShader() const { return *m_FragmentShader; }
-        RHIDescriptorSet& GetDescriptorSet()  const { return *m_DescriptorSet; }
-
-    private:
-        Ref<RHIShader>                m_VertexShader;
-        Ref<RHIShader>                m_FragmentShader;
-        Scope<RHIDescriptorSetLayout> m_DescriptorSetLayout;
-        Scope<RHIDescriptorSet>       m_DescriptorSet;
-        Scope<RHIBuffer>              m_ParamsBuffer;
-        MaterialParams                m_Params;
     };
 
 }
