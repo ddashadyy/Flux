@@ -2,6 +2,7 @@
 #include "VulkanDescriptorSet.h"
 #include "VulkanBuffer.h"
 #include "VulkanTexture.h"
+#include "VulkanCommon.h"
 
 
 namespace Flux {
@@ -18,19 +19,6 @@ namespace Flux {
 
 		FL_CORE_ASSERT(false, "Unknown Descriptor Type!");
 		return VK_DESCRIPTOR_TYPE_MAX_ENUM;
-	}
-
-	static VkShaderStageFlags GetShaderStageFlags(ShaderStage stage)
-	{
-		switch (stage)
-		{
-		case ShaderStage::Vertex:   return VK_SHADER_STAGE_VERTEX_BIT;
-		case ShaderStage::Fragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
-		case ShaderStage::Compute:  return VK_SHADER_STAGE_COMPUTE_BIT;
-		}
-
-		FL_CORE_ASSERT(false, "Unknown Shader Stage!");
-		return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
 	}
 
 	VulkanDescriptorSetLayout::VulkanDescriptorSetLayout(VkDevice device, const DescriptorSetLayoutDesc& desc)
