@@ -34,7 +34,7 @@ namespace Flux {
         void BindVertexBuffer(RHIBuffer* buffer) override;
         void BindIndexBuffer(RHIBuffer* buffer, IndexType indexType = IndexType::Uint32) override;
 
-        void BindDescriptorSet(RHIDescriptorSet* descriptorSet) override;
+        void BindDescriptorSet(uint32_t setIndex, RHIDescriptorSet* descriptorSet) override;
 
         void DrawIndexed(uint32_t indexCount, uint32_t instanceCount = 1) override;
         void Dispatch(uint32_t gx, uint32_t gy, uint32_t gz) override;
