@@ -41,7 +41,7 @@ namespace Flux {
         virtual void BindVertexBuffer(RHIBuffer* buffer) = 0;
         virtual void BindIndexBuffer(RHIBuffer* buffer, IndexType indexType = IndexType::Uint32)  = 0;
 
-        virtual void BindDescriptorSet(RHIDescriptorSet* descriptorSet) = 0;
+        virtual void BindDescriptorSet(uint32_t setIndex, RHIDescriptorSet* descriptorSet) = 0;
 
         virtual void DrawIndexed(uint32_t indexCount, uint32_t instanceCount = 1) = 0;
         virtual void Dispatch(uint32_t gx, uint32_t gy, uint32_t gz) = 0;
