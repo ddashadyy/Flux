@@ -5,7 +5,7 @@
 #include "VulkanBuffer.h"
 #include "VulkanRenderpass.h"
 #include "VulkanDescriptorSet.h"
-
+#include "VulkanCommon.h"
 
 
 namespace Flux {
@@ -40,29 +40,6 @@ namespace Flux {
 
         FL_CORE_ASSERT(false, "Unknown Primitive Topology!");
         return VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
-    }
-
-    static VkShaderStageFlags GetShaderStageFlags(ShaderStage stage)
-    {
-        VkShaderStageFlags flags = 0;
-
-        if (HasFlag(stage, ShaderStage::Vertex))
-            flags |= VK_SHADER_STAGE_VERTEX_BIT;
-
-        if (HasFlag(stage, ShaderStage::Fragment))
-            flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
-
-        if (HasFlag(stage, ShaderStage::Compute))
-            flags |= VK_SHADER_STAGE_COMPUTE_BIT;
-
-        // Если не установлен ни один флаг, можно вернуть 0 или ассерт
-        if (flags == 0)
-        {
-            FL_CORE_ASSERT(false, "No Shader Stage specified!");
-        }
-
-        return flags;
-
     }
 
     VulkanPipeline::VulkanPipeline(VkDevice device, const PipelineDesc& desc)
@@ -140,7 +117,7 @@ namespace Flux {
         VkPipelineMultisampleStateCreateInfo multisampling{};
         multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
         multisampling.sampleShadingEnable = VK_FALSE;
-        multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        multisampling.rasterizationSamples = GetSampleCount(m_Desc.Samples);
 
         // Depth Stencil
         VkPipelineDepthStencilStateCreateInfo depthStencil{};
@@ -205,13 +182,19 @@ namespace Flux {
 
     void VulkanPipeline::CreatePipelineLayout()
     {
-        auto descriptorSetLayout = m_Desc.DescriptorSetLayout->GetHandle<VkDescriptorSetLayout>();
+        std::vector<VkDescriptorSetLayout> vkLayouts; 
+        vkLayouts.reserve(m_Desc.DescriptorSetLayouts.size());
+
+        for (const auto* layout : m_Desc.DescriptorSetLayouts)
+        {
+            if (layout)
+                vkLayouts.push_back(layout->GetHandle<VkDescriptorSetLayout>()); 
+        }
 
         VkPipelineLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        layoutInfo.setLayoutCount = 1;
-        layoutInfo.pSetLayouts = &descriptorSetLayout;
-        
+        layoutInfo.setLayoutCount = static_cast<uint32_t>(vkLayouts.size());
+        layoutInfo.pSetLayouts = vkLayouts.empty() ? nullptr : vkLayouts.data();
 
         auto pushConstants = m_Desc.pipelineLayoutDesc;
         if (pushConstants.Size > 0)
@@ -232,10 +215,8 @@ namespace Flux {
             layoutInfo.pPushConstantRanges = nullptr;
         }
 
-
         FL_CORE_ASSERT(vkCreatePipelineLayout(m_Device, &layoutInfo, nullptr, &m_PipelineLayout) == VK_SUCCESS,
             "Failed to create Pipeline Layout");
-
     }
 
 }
