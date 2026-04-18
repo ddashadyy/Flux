@@ -1,7 +1,7 @@
 #include "flpch.h"
 #include "VulkanFramebuffer.h"
 #include "VulkanRenderPass.h"
-#include "VulkanTexture.h"
+#include "VulkanSwapchainTexture.h"
 
 namespace Flux {
 
@@ -11,10 +11,13 @@ namespace Flux {
         std::vector<VkImageView> attachments;
 
         for (auto* colorTarget : m_Spec.ColorTargets)
-            attachments.push_back(static_cast<VulkanTexture*>(colorTarget)->GetImageView());
+            attachments.emplace_back(static_cast<VkImageView>(colorTarget->GetNativeImageView()));
 
         if (m_Spec.DepthTarget)
-            attachments.push_back(static_cast<VulkanTexture*>(m_Spec.DepthTarget)->GetImageView());
+            attachments.emplace_back(static_cast<VkImageView>(m_Spec.DepthTarget->GetNativeImageView()));
+
+        if (m_Spec.ResolveTarget)  
+            attachments.emplace_back(static_cast<VkImageView>(m_Spec.ResolveTarget->GetNativeImageView()));
 
         auto* vkPass = static_cast<VulkanRenderPass*>(m_Spec.RenderPass);
 
