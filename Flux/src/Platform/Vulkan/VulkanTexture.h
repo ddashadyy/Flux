@@ -28,6 +28,8 @@ namespace Flux {
 		VkImageView GetImageView() const { return m_ImageView; }
 		VkSampler   GetSampler()   const { return m_Sampler; }
 
+		void* GetNativeImageView() const override { return static_cast<void*>(m_ImageView); }
+
 	private:
 		void TransitionImageLayout(VkImageLayout oldLayout, VkImageLayout newLayout);
 		void CopyBufferToImage(VkBuffer buffer);
@@ -35,6 +37,7 @@ namespace Flux {
 		VkCommandBuffer BeginSingleTimeCommands();
 		void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
 
+		void GenerateMipmaps();
 
 	private:
 		VkImage        m_Image      = VK_NULL_HANDLE;

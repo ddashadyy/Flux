@@ -32,6 +32,8 @@ namespace Flux {
         VkImage     GetImage()     const { return m_Image; }
         VkImageView GetImageView() const { return m_ImageView; }
 
+        void* GetNativeImageView() const override { return static_cast<void*>(m_ImageView); }
+
     private:
         VkImage     m_Image = VK_NULL_HANDLE;
         VkImageView m_ImageView = VK_NULL_HANDLE;
