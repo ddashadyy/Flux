@@ -4,6 +4,7 @@
 #include "Flux/Core/Base.h"
 
 #include "RHIShader.h"
+#include "RHICommon.h"
 #include "RHIDescriptorSet.h"
 #include "RHIRenderPass.h"
 #include "BufferLayout.h"
@@ -49,16 +50,22 @@ namespace Flux {
 
 	struct PipelineDesc 
 	{
-		const RHIShader*              VertexShader         = nullptr;
-		const RHIShader*              FragmentShader       = nullptr;
-		BufferLayout                  VertexLayout;
-		PipelineLayoutDesc            pipelineLayoutDesc;
-		BlendState                    Blend;
-		DepthStencilState             DepthStencil;
-		PrimitiveTopology             Topology             = PrimitiveTopology::TriangleList;
-		PipelineType                  Type                 = PipelineType::Graphics;
-		const RHIDescriptorSetLayout* DescriptorSetLayout  = nullptr;
-		const RHIRenderPass*          RenderPass           = nullptr;
+		const RHIShader*                             VertexShader         = nullptr;
+		const RHIShader*                             FragmentShader       = nullptr;
+
+		BufferLayout                                 VertexLayout;
+		PipelineLayoutDesc                           pipelineLayoutDesc;
+
+		BlendState                                   Blend;
+
+		SampleCount                                  Samples              = Flux::SampleCount::x1;
+
+		DepthStencilState                            DepthStencil;
+		PrimitiveTopology                            Topology             = PrimitiveTopology::TriangleList;
+		PipelineType                                 Type                 = PipelineType::Graphics;
+
+		std::vector<const RHIDescriptorSetLayout*>   DescriptorSetLayouts;
+		const RHIRenderPass*                         RenderPass           = nullptr;
 	};
 
 
