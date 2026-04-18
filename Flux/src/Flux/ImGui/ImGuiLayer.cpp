@@ -40,6 +40,9 @@ namespace Flux {
         auto& vkSwapchain = static_cast<VulkanSwapchain&>(*app.GetDevice().GetSwapchain());
         GLFWwindow* window = static_cast<GLFWwindow*>(app.GetWindow().GetNativeWindow());
 
+        CreateRenderPass();
+        CreateFramebuffers();
+
         ImGui_ImplGlfw_InitForVulkan(window, true);
 
         ImGui_ImplVulkan_InitInfo initInfo{};
@@ -52,7 +55,7 @@ namespace Flux {
         initInfo.DescriptorPool = vkDevice.GetDescriptorPool();
         initInfo.MinImageCount = 2;
         initInfo.ImageCount = vkSwapchain.GetImageCount();
-        initInfo.PipelineInfoMain.RenderPass = app.GetImGuiRenderPass().GetHandle<VkRenderPass>();
+        initInfo.PipelineInfoMain.RenderPass = m_RenderPass->GetHandle<VkRenderPass>();
 
         ImGui_ImplVulkan_Init(&initInfo);
 
@@ -92,7 +95,6 @@ namespace Flux {
             (float)app.GetWindow().GetHeight()
         );
 
-        // берём VkCommandBuffer из CommandList
         auto* cmdList = static_cast<VulkanCommandList*>(app.GetDevice().GetCommandList(frameIndex));
         VkCommandBuffer cmd = cmdList->GetHandle<VkCommandBuffer>();
 
@@ -106,4 +108,48 @@ namespace Flux {
             glfwMakeContextCurrent(backup);
         }
     }
+
+    void ImGuiLayer::OnResize(uint32_t width, uint32_t height)
+    {
+        m_Framebuffers.clear();
+        CreateFramebuffers();
+    }
+
+    void ImGuiLayer::CreateRenderPass()
+    {
+        Application& app = Application::Get();
+        auto& vkSwapchain = static_cast<VulkanSwapchain&>(*app.GetDevice().GetSwapchain());
+
+        RenderPassDesc rpDesc{};
+        rpDesc.ColorFormats = { vkSwapchain.GetFormat() };
+        rpDesc.HasDepth = false;
+        rpDesc.ColorLoadOp = AttachmentLoadOp::Load;
+        rpDesc.ColorStoreOp = AttachmentStoreOp::Store;
+        rpDesc.ColorInitialLayout = ImageLayout::ColorAttachment;
+        rpDesc.ColorFinalLayout = ImageLayout::Present;
+
+        m_RenderPass = app.GetDevice().CreateRenderPass(rpDesc);
+    }
+
+    void ImGuiLayer::CreateFramebuffers()
+    {
+        Application& app = Application::Get();
+        auto& vkSwapchain = static_cast<VulkanSwapchain&>(*app.GetDevice().GetSwapchain());
+
+        uint32_t imageCount = vkSwapchain.GetImageCount();
+        m_Framebuffers.resize(imageCount);
+
+        for (uint32_t i = 0; i < imageCount; i++)
+        {
+            FramebufferSpec fbSpec{};
+            fbSpec.RenderPass = m_RenderPass.get();
+            fbSpec.ColorTargets = { vkSwapchain.GetColorTarget(i) };
+            fbSpec.DepthTarget = nullptr;
+            fbSpec.Width = vkSwapchain.GetExtent().width;
+            fbSpec.Height = vkSwapchain.GetExtent().height;
+
+            m_Framebuffers[i] = app.GetDevice().CreateFramebuffer(fbSpec);
+        }
+    }
+
 }
