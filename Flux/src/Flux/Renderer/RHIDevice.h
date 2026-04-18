@@ -53,6 +53,8 @@ namespace Flux {
 
         virtual DeviceMemoryStats GetMemoryStatistics() const = 0;
 
+        virtual void CopyBuffer(RHIBuffer* src, RHIBuffer* dst) const = 0;
+
     protected:
         virtual void* GetHandleImpl() const = 0;
     };
