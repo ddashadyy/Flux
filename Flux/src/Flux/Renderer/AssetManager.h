@@ -32,13 +32,13 @@ namespace Flux {
 
         explicit AssetManager(RHIDevice& device);
 
-        Ref<Model>     LoadModel(const std::string& path, RHIDescriptorSetLayout* textureLayout);
+        Ref<Model>    LoadModel(const std::string& path, RHIDescriptorSetLayout* textureLayout);
         Ref<Texture>  LoadTexture(const std::string& path);
 
         void ClearCache();
 
     private:
-        Ref<Model>     LoadModelFromFile(const std::string& path, RHIDescriptorSetLayout* textureLayout);
+        Ref<Model>    LoadModelFromFile(const std::string& path, RHIDescriptorSetLayout* textureLayout);
         Ref<Texture>  LoadTextureFromFile(const std::string& path);
 
     private:
