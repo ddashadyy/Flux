@@ -17,8 +17,9 @@ namespace Flux {
         Sampled      = 0, 
         RenderTarget = 1, 
         DepthStencil = 2, 
-        Storage      = 3, 
-        Transient    = 4
+        DepthSampled = 3,
+        Storage      = 4, 
+        Transient    = 5
     };
 
     struct TextureSpec 
