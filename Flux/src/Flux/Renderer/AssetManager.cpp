@@ -165,7 +165,7 @@ namespace Flux {
 					vertices.emplace_back(vertex);
 				}
 
-				materialIndicesMap[materialId].push_back(uniqueVertices[vertex]);
+				materialIndicesMap[materialId].emplace_back(uniqueVertices[vertex]);
 
 				if ((i + 1) % 3 == 0)
 					faceIndex++;
