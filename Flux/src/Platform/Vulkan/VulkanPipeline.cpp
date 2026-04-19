@@ -7,7 +7,6 @@
 #include "VulkanDescriptorSet.h"
 #include "VulkanCommon.h"
 
-
 namespace Flux {
 
     static VkFormat ShaderDataTypeToVkFormat(ShaderDataType type)
@@ -23,7 +22,6 @@ namespace Flux {
         case ShaderDataType::Int3:   return VK_FORMAT_R32G32B32_SINT;
         case ShaderDataType::Int4:   return VK_FORMAT_R32G32B32A32_SINT;
         }
-
         FL_CORE_ASSERT(false, "Unknown ShaderDataType!");
         return VK_FORMAT_UNDEFINED;
     }
@@ -37,7 +35,6 @@ namespace Flux {
         case PrimitiveTopology::LineList:      return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
         case PrimitiveTopology::PointList:     return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
         }
-
         FL_CORE_ASSERT(false, "Unknown Primitive Topology!");
         return VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
     }
@@ -45,31 +42,35 @@ namespace Flux {
     VulkanPipeline::VulkanPipeline(VkDevice device, const PipelineDesc& desc)
         : m_Device(device), m_Desc(desc)
     {
-        // сначала создаем Layout
         CreatePipelineLayout();
 
-        // Создание графического конвейера
-		// Первый этап - Input Assembly
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
         inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
         inputAssembly.topology = GetPrimitiveTopology(desc.Topology);
         inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-		// Shader stages
+        // Shader stages
         auto* vertShader = static_cast<const VulkanShader*>(desc.VertexShader);
-        auto* fragShader = static_cast<const VulkanShader*>(desc.FragmentShader);
 
-        std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{};
+        std::vector<VkPipelineShaderStageCreateInfo> shaderStages{};
 
-        shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-        shaderStages[0].module = vertShader->GetHandle<VkShaderModule>();
-        shaderStages[0].pName = vertShader->GetEntryPoint().c_str();
+        VkPipelineShaderStageCreateInfo vertStage{};
+        vertStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        vertStage.stage = VK_SHADER_STAGE_VERTEX_BIT;
+        vertStage.module = vertShader->GetHandle<VkShaderModule>();
+        vertStage.pName = vertShader->GetEntryPoint().c_str();
+        shaderStages.push_back(vertStage);
 
-        shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-        shaderStages[1].module = fragShader->GetHandle<VkShaderModule>();
-        shaderStages[1].pName = fragShader->GetEntryPoint().c_str();
+        if (!desc.DepthOnly && desc.FragmentShader)
+        {
+            auto* fragShader = static_cast<const VulkanShader*>(desc.FragmentShader);
+            VkPipelineShaderStageCreateInfo fragStage{};
+            fragStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            fragStage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+            fragStage.module = fragShader->GetHandle<VkShaderModule>();
+            fragStage.pName = fragShader->GetEntryPoint().c_str();
+            shaderStages.push_back(fragStage);
+        }
 
         // Vertex input
         std::vector<VkVertexInputAttributeDescription> attributeDescs{};
@@ -96,7 +97,7 @@ namespace Flux {
         vertexInput.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescs.size());
         vertexInput.pVertexAttributeDescriptions = attributeDescs.data();
 
-        // Viewport — dynamic state
+        // Viewport
         VkPipelineViewportStateCreateInfo viewportState{};
         viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
         viewportState.viewportCount = 1;
@@ -109,9 +110,19 @@ namespace Flux {
         rasterizer.rasterizerDiscardEnable = VK_FALSE;
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizer.lineWidth = 1.0f;
-        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
         rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-        rasterizer.depthBiasEnable = VK_FALSE;
+
+        if (desc.DepthOnly)
+        {
+            // для shadow pass — front face culling убирает peter panning
+            rasterizer.cullMode = VK_CULL_MODE_FRONT_BIT;
+            rasterizer.depthBiasEnable = VK_FALSE;
+        }
+        else
+        {
+            rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+            rasterizer.depthBiasEnable = VK_FALSE;
+        }
 
         // Multisampling
         VkPipelineMultisampleStateCreateInfo multisampling{};
@@ -127,7 +138,7 @@ namespace Flux {
         depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
         depthStencil.stencilTestEnable = VK_FALSE;
 
-        // Color Blending
+        // Color blend — для depth-only нет color attachments
         VkPipelineColorBlendAttachmentState blendAttachment{};
         blendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
             VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -136,21 +147,22 @@ namespace Flux {
         VkPipelineColorBlendStateCreateInfo colorBlend{};
         colorBlend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         colorBlend.logicOpEnable = VK_FALSE;
-        colorBlend.attachmentCount = 1;
-        colorBlend.pAttachments = &blendAttachment;
+        colorBlend.attachmentCount = desc.DepthOnly ? 0 : 1;
+        colorBlend.pAttachments = desc.DepthOnly ? nullptr : &blendAttachment;
 
-        //Dynamic State — viewport и scissor задаём в рантайме
-        std::array<VkDynamicState, 2> dynamicStates = {
+        // Dynamic state — добавляем depth bias для shadow pass
+        std::vector<VkDynamicState> dynamicStates = {
             VK_DYNAMIC_STATE_VIEWPORT,
             VK_DYNAMIC_STATE_SCISSOR
         };
+        //if (desc.DepthOnly)
+        //    dynamicStates.push_back(VK_DYNAMIC_STATE_DEPTH_BIAS);
 
         VkPipelineDynamicStateCreateInfo dynamicState{};
         dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
         dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
         dynamicState.pDynamicStates = dynamicStates.data();
 
-        // Сам пайплайн
         VkGraphicsPipelineCreateInfo pipelineInfo{};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
         pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
@@ -167,11 +179,11 @@ namespace Flux {
         pipelineInfo.renderPass = desc.RenderPass->GetHandle<VkRenderPass>();
         pipelineInfo.subpass = 0;
 
-        FL_CORE_ASSERT(vkCreateGraphicsPipelines(m_Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline) == VK_SUCCESS,
+        FL_CORE_ASSERT(vkCreateGraphicsPipelines(m_Device, VK_NULL_HANDLE, 1,
+            &pipelineInfo, nullptr, &m_Pipeline) == VK_SUCCESS,
             "Failed to create Graphics Pipeline");
 
         FL_CORE_INFO("Created Vulkan Pipeline");
-
     }
 
     VulkanPipeline::~VulkanPipeline()
@@ -182,13 +194,13 @@ namespace Flux {
 
     void VulkanPipeline::CreatePipelineLayout()
     {
-        std::vector<VkDescriptorSetLayout> vkLayouts; 
+        std::vector<VkDescriptorSetLayout> vkLayouts;
         vkLayouts.reserve(m_Desc.DescriptorSetLayouts.size());
 
         for (const auto* layout : m_Desc.DescriptorSetLayouts)
         {
             if (layout)
-                vkLayouts.push_back(layout->GetHandle<VkDescriptorSetLayout>()); 
+                vkLayouts.push_back(layout->GetHandle<VkDescriptorSetLayout>());
         }
 
         VkPipelineLayoutCreateInfo layoutInfo{};
@@ -199,10 +211,8 @@ namespace Flux {
         auto pushConstants = m_Desc.pipelineLayoutDesc;
         if (pushConstants.Size > 0)
         {
-            VkShaderStageFlags stageFlags = GetShaderStageFlags(pushConstants.Stage);
-
             VkPushConstantRange pushConstantRange{};
-            pushConstantRange.stageFlags = stageFlags;
+            pushConstantRange.stageFlags = GetShaderStageFlags(pushConstants.Stage);
             pushConstantRange.offset = pushConstants.Offset;
             pushConstantRange.size = pushConstants.Size;
 
@@ -218,5 +228,4 @@ namespace Flux {
         FL_CORE_ASSERT(vkCreatePipelineLayout(m_Device, &layoutInfo, nullptr, &m_PipelineLayout) == VK_SUCCESS,
             "Failed to create Pipeline Layout");
     }
-
 }
