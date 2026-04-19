@@ -54,4 +54,21 @@ namespace Flux {
         m_ViewProjectionMatrix = m_Projection * m_ViewMatrix;
     }
 
+    
+    glm::vec3 PerspectiveCamera::GetForward() const
+    {
+        float yaw = glm::radians(m_Rotation.y);
+        float pitch = glm::radians(m_Rotation.x);
+        return glm::normalize(glm::vec3(
+            cos(yaw) * cos(pitch),
+            sin(pitch),
+            sin(yaw) * cos(pitch)
+        ));
+    }
+
+    glm::vec3 PerspectiveCamera::GetRight() const
+    {
+        return glm::normalize(glm::cross(GetForward(), glm::vec3(0.0f, 1.0f, 0.0f)));
+    }
+
 }

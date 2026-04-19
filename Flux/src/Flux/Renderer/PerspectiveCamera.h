@@ -18,10 +18,14 @@ namespace Flux {
 
         const glm::vec3& GetPosition() const { return m_Position; }
         const glm::vec3& GetRotation() const { return m_Rotation; }
-        float             GetFOV()     const { return m_FOV; }
+        float            GetFOV()      const { return m_FOV; }
 
         const glm::mat4& GetViewMatrix()           const { return m_ViewMatrix; }
         const glm::mat4& GetViewProjectionMatrix() const { return m_ViewProjectionMatrix; }
+
+        
+        glm::vec3 GetForward() const;
+        glm::vec3 GetRight()   const;
 
     private:
         void RecalculateViewMatrix();
