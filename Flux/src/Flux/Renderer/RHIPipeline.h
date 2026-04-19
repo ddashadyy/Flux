@@ -48,24 +48,25 @@ namespace Flux {
 		uint32_t Size     = 0;
 	};
 
-	struct PipelineDesc 
+	struct PipelineDesc
 	{
-		const RHIShader*                             VertexShader         = nullptr;
-		const RHIShader*                             FragmentShader       = nullptr;
+		const RHIShader*     VertexShader = nullptr;
+		const RHIShader*     FragmentShader = nullptr;
+		const RHIRenderPass* RenderPass = nullptr;
 
-		BufferLayout                                 VertexLayout;
-		PipelineLayoutDesc                           pipelineLayoutDesc;
-
-		BlendState                                   Blend;
-
-		SampleCount                                  Samples              = Flux::SampleCount::x1;
-
-		DepthStencilState                            DepthStencil;
-		PrimitiveTopology                            Topology             = PrimitiveTopology::TriangleList;
-		PipelineType                                 Type                 = PipelineType::Graphics;
+		BufferLayout         VertexLayout;
+		PipelineLayoutDesc   pipelineLayoutDesc;
+						     
+		BlendState           Blend;
+						     
+		SampleCount          Samples = Flux::SampleCount::x1;
+						     
+		DepthStencilState    DepthStencil;
+		PrimitiveTopology    Topology = PrimitiveTopology::TriangleList;
+		PipelineType         Type = PipelineType::Graphics;
+		bool                 DepthOnly = false; // для shadow pass
 
 		std::vector<const RHIDescriptorSetLayout*>   DescriptorSetLayouts;
-		const RHIRenderPass*                         RenderPass           = nullptr;
 	};
 
 
