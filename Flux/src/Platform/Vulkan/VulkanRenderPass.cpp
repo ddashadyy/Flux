@@ -12,7 +12,6 @@ namespace Flux {
         case AttachmentLoadOp::Clear:    return VK_ATTACHMENT_LOAD_OP_CLEAR;
         case AttachmentLoadOp::DontCare: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         }
-
         FL_CORE_ASSERT(false, "Unknown Attachment load op!");
         return VK_ATTACHMENT_LOAD_OP_NONE;
     }
@@ -24,7 +23,6 @@ namespace Flux {
         case AttachmentStoreOp::Store:    return VK_ATTACHMENT_STORE_OP_STORE;
         case AttachmentStoreOp::DontCare: return VK_ATTACHMENT_STORE_OP_DONT_CARE;
         }
-
         FL_CORE_ASSERT(false, "Unknown Attachment store op!");
         return VK_ATTACHMENT_STORE_OP_NONE;
     }
@@ -51,7 +49,7 @@ namespace Flux {
 
         std::vector<VkAttachmentDescription> attachments{};
 
-        // 0: MSAA color (или обычный color если нет MSAA)
+        // Color attachments
         for (auto& format : m_Desc.ColorFormats)
         {
             VkAttachmentDescription color{};
@@ -67,7 +65,7 @@ namespace Flux {
             attachments.emplace_back(color);
         }
 
-        // Depth
+        // Depth attachment
         uint32_t depthIndex = static_cast<uint32_t>(attachments.size());
         if (m_Desc.HasDepth)
         {
@@ -75,15 +73,17 @@ namespace Flux {
             depth.format = GetVkFormat(m_Desc.DepthFormat);
             depth.samples = sampleCount;
             depth.loadOp = GetLoadOp(m_Desc.DepthLoadOp);
-            depth.storeOp = msaa ? VK_ATTACHMENT_STORE_OP_DONT_CARE : GetStoreOp(m_Desc.DepthStoreOp);
+            depth.storeOp = GetStoreOp(m_Desc.DepthStoreOp);
             depth.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             depth.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
             depth.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            depth.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            depth.finalLayout = m_Desc.DepthReadOnly
+                ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+                : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
             attachments.emplace_back(depth);
         }
 
-        // Resolve attachment (только при MSAA)
+        // Resolve attachments (только при MSAA)
         uint32_t resolveIndex = static_cast<uint32_t>(attachments.size());
         if (msaa)
         {
@@ -102,7 +102,7 @@ namespace Flux {
             }
         }
 
-        // Refs
+        // Attachment refs
         std::vector<VkAttachmentReference> colorRefs{};
         for (uint32_t i = 0; i < m_Desc.ColorFormats.size(); i++)
         {
@@ -131,24 +131,49 @@ namespace Flux {
         VkSubpassDescription subpass{};
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         subpass.colorAttachmentCount = static_cast<uint32_t>(colorRefs.size());
-        subpass.pColorAttachments = colorRefs.data();
+        subpass.pColorAttachments = colorRefs.empty() ? nullptr : colorRefs.data();
         subpass.pDepthStencilAttachment = m_Desc.HasDepth ? &depthRef : nullptr;
         subpass.pResolveAttachments = msaa ? resolveRefs.data() : nullptr;
 
+        // Dependencies
         std::array<VkSubpassDependency, 2> dependencies{};
-        dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-        dependencies[0].dstSubpass = 0;
-        dependencies[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependencies[0].srcAccessMask = 0;
-        dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-        dependencies[1].srcSubpass = 0;
-        dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-        dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-        dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        dependencies[1].dstAccessMask = 0;
+        if (m_Desc.DepthReadOnly)
+        {
+            // Shadow pass: depth write -> shader read
+            dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+            dependencies[0].dstSubpass = 0;
+            dependencies[0].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            dependencies[0].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+            dependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            dependencies[0].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+            dependencies[1].srcSubpass = 0;
+            dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+            dependencies[1].srcStageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+            dependencies[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            dependencies[1].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+        }
+        else
+        {
+            // Scene pass: стандартные color dependencies
+            dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+            dependencies[0].dstSubpass = 0;
+            dependencies[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            dependencies[0].srcAccessMask = 0;
+            dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+            dependencies[1].srcSubpass = 0;
+            dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+            dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+            dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            dependencies[1].dstAccessMask = 0;
+        }
 
         VkRenderPassCreateInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
