@@ -33,7 +33,9 @@ namespace Flux {
     {
         std::vector<Format> ColorFormats = {};
         Format              DepthFormat = Format::D32_SFLOAT;
+
         bool                HasDepth = false;
+        bool                DepthReadOnly = false; // для shadow map
 
         SampleCount         Samples = SampleCount::x1;
 
