@@ -10,6 +10,7 @@
 #include "VulkanSemaphore.h"
 #include "VulkanDescriptorSet.h"
 #include "VulkanFramebuffer.h"
+#include "VulkanSampler.h"
 
 #include <vk_mem_alloc.h>
 #include <GLFW/glfw3.h>
@@ -24,77 +25,59 @@ namespace Flux {
         const VkDebugUtilsMessengerCallbackDataEXT* data,
         void* userData)
     {
-        const char* severityStr;
-        switch (severity) 
-        {
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: severityStr = "VERBOSE"; break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: severityStr = "INFO"; break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: severityStr = "WARNING"; break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: severityStr = "ERROR"; break;
-        default: severityStr = "UNKNOWN"; break;
-        }
+        if (severity < VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+            return VK_FALSE;
 
-        const char* typeStr;
-        switch (type) 
-        {
-        case VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT: typeStr = "GENERAL"; break;
-        case VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT: typeStr = "VALIDATION"; break;
-        case VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT: typeStr = "PERFORMANCE"; break;
-        default: typeStr = "UNKNOWN"; break;
-        }
-
-        FL_CORE_ERROR("=== VULKAN VALIDATION [{}] ({}) ===", typeStr, severityStr);
-        FL_CORE_ERROR("Message: {}", data->pMessage);
-
-        if (data->pMessageIdName) 
-        {
-            FL_CORE_ERROR("Message ID: {}", data->pMessageIdName);
-        }
-
-        for (uint32_t i = 0; i < data->objectCount; i++) 
-        {
-            const char* objectTypeStr = "UNKNOWN";
-            switch (data->pObjects[i].objectType) 
-            {
-            case VK_OBJECT_TYPE_UNKNOWN: objectTypeStr = "UNKNOWN"; break;
-            case VK_OBJECT_TYPE_INSTANCE: objectTypeStr = "INSTANCE"; break;
-            case VK_OBJECT_TYPE_PHYSICAL_DEVICE: objectTypeStr = "PHYSICAL_DEVICE"; break;
-            case VK_OBJECT_TYPE_DEVICE: objectTypeStr = "DEVICE"; break;
-            case VK_OBJECT_TYPE_QUEUE: objectTypeStr = "QUEUE"; break;
-            case VK_OBJECT_TYPE_SEMAPHORE: objectTypeStr = "SEMAPHORE"; break;
-            case VK_OBJECT_TYPE_COMMAND_BUFFER: objectTypeStr = "COMMAND_BUFFER"; break;
-            case VK_OBJECT_TYPE_FENCE: objectTypeStr = "FENCE"; break;
-            case VK_OBJECT_TYPE_DEVICE_MEMORY: objectTypeStr = "DEVICE_MEMORY"; break;
-            case VK_OBJECT_TYPE_BUFFER: objectTypeStr = "BUFFER"; break;
-            case VK_OBJECT_TYPE_IMAGE: objectTypeStr = "IMAGE"; break;
-            case VK_OBJECT_TYPE_EVENT: objectTypeStr = "EVENT"; break;
-            case VK_OBJECT_TYPE_QUERY_POOL: objectTypeStr = "QUERY_POOL"; break;
-            case VK_OBJECT_TYPE_BUFFER_VIEW: objectTypeStr = "BUFFER_VIEW"; break;
-            case VK_OBJECT_TYPE_IMAGE_VIEW: objectTypeStr = "IMAGE_VIEW"; break;
-            case VK_OBJECT_TYPE_SHADER_MODULE: objectTypeStr = "SHADER_MODULE"; break;
-            case VK_OBJECT_TYPE_PIPELINE_CACHE: objectTypeStr = "PIPELINE_CACHE"; break;
-            case VK_OBJECT_TYPE_PIPELINE_LAYOUT: objectTypeStr = "PIPELINE_LAYOUT"; break;
-            case VK_OBJECT_TYPE_RENDER_PASS: objectTypeStr = "RENDER_PASS"; break;
-            case VK_OBJECT_TYPE_PIPELINE: objectTypeStr = "PIPELINE"; break;
-            case VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT: objectTypeStr = "DESCRIPTOR_SET_LAYOUT"; break;
-            case VK_OBJECT_TYPE_SAMPLER: objectTypeStr = "SAMPLER"; break;
-            case VK_OBJECT_TYPE_DESCRIPTOR_POOL: objectTypeStr = "DESCRIPTOR_POOL"; break;
-            case VK_OBJECT_TYPE_DESCRIPTOR_SET: objectTypeStr = "DESCRIPTOR_SET"; break;
-            case VK_OBJECT_TYPE_FRAMEBUFFER: objectTypeStr = "FRAMEBUFFER"; break;
-            case VK_OBJECT_TYPE_COMMAND_POOL: objectTypeStr = "COMMAND_POOL"; break;
-            default: objectTypeStr = "OTHER"; break;
+        auto objectTypeName = [](VkObjectType t) -> const char* {
+            switch (t) {
+            case VK_OBJECT_TYPE_INSTANCE:              return "Instance";
+            case VK_OBJECT_TYPE_PHYSICAL_DEVICE:       return "PhysicalDevice";
+            case VK_OBJECT_TYPE_DEVICE:                return "Device";
+            case VK_OBJECT_TYPE_QUEUE:                 return "Queue";
+            case VK_OBJECT_TYPE_SEMAPHORE:             return "Semaphore";
+            case VK_OBJECT_TYPE_COMMAND_BUFFER:        return "CommandBuffer";
+            case VK_OBJECT_TYPE_FENCE:                 return "Fence";
+            case VK_OBJECT_TYPE_BUFFER:                return "Buffer";
+            case VK_OBJECT_TYPE_IMAGE:                 return "Image";
+            case VK_OBJECT_TYPE_IMAGE_VIEW:            return "ImageView";
+            case VK_OBJECT_TYPE_SHADER_MODULE:         return "ShaderModule";
+            case VK_OBJECT_TYPE_PIPELINE_LAYOUT:       return "PipelineLayout";
+            case VK_OBJECT_TYPE_RENDER_PASS:           return "RenderPass";
+            case VK_OBJECT_TYPE_PIPELINE:              return "Pipeline";
+            case VK_OBJECT_TYPE_DESCRIPTOR_SET:        return "DescriptorSet";
+            case VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT: return "DescriptorSetLayout";
+            case VK_OBJECT_TYPE_FRAMEBUFFER:           return "Framebuffer";
+            case VK_OBJECT_TYPE_COMMAND_POOL:          return "CommandPool";
+            case VK_OBJECT_TYPE_SAMPLER:               return "Sampler";
+            default:                                   return "Unknown";
             }
+            };
 
-            FL_CORE_ERROR("  Object {}: type={}, handle=0x%llx, name='{}'",
-                i,
-                objectTypeStr,
-                (unsigned long long)data->pObjects[i].objectHandle,
-                data->pObjects[i].pObjectName ? data->pObjects[i].pObjectName : "unnamed");
+        bool isError = severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+
+        if (isError) FL_CORE_ERROR("[Vulkan] {}", data->pMessage);
+        else         FL_CORE_WARN("[Vulkan] {}", data->pMessage);
+
+        if (data->pMessageIdName)
+        {
+            if (isError) FL_CORE_ERROR("  ^ {}", data->pMessageIdName);
+            else         FL_CORE_WARN("  ^ {}", data->pMessageIdName);
         }
 
+        for (uint32_t i = 0; i < data->objectCount; i++)
+        {
+            const auto& obj = data->pObjects[i];
+            const char* name = (obj.pObjectName && obj.pObjectName[0]) ? obj.pObjectName : "unnamed";
+            if (isError) FL_CORE_ERROR("  [{}] {} ({})", i, objectTypeName(obj.objectType), name);
+            else         FL_CORE_WARN("  [{}] {} ({})", i, objectTypeName(obj.objectType), name);
+        }
 
         return VK_FALSE;
     }
+
+    // =========================================================================
+    //  Constructor / Destructor
+    // =========================================================================
 
     VulkanDevice::VulkanDevice(void* windowHandle, uint32_t width, uint32_t height)
     {
@@ -106,45 +89,263 @@ namespace Flux {
         CreateAllocator();
         CreateDescriptorPool();
 
-        m_Swapchain = CreateScope<VulkanSwapchain>(m_Device, m_PhysicalDevice,
-            m_Surface, m_PresentQueue,
-            width, height
-        );
+        m_Swapchain = CreateScope<VulkanSwapchain>(
+            m_Device, m_PhysicalDevice, m_Surface, m_PresentQueue, width, height);
 
-        CreateCommandList();
+        CreateCommandLists();
 
-        FL_CORE_INFO("Vulkan Device initialized");
+        VkCommandBufferAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+        allocInfo.commandPool = m_TransferCommandPool;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandBufferCount = 1;
+        vkAllocateCommandBuffers(m_Device, &allocInfo, &m_ImmediateCmd);
+
+        VkFenceCreateInfo fenceInfo{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+        vkCreateFence(m_Device, &fenceInfo, nullptr, &m_ImmediateFence);
+
+        FL_CORE_INFO("Created Vulkan Device");
     }
 
     VulkanDevice::~VulkanDevice()
     {
         vkDeviceWaitIdle(m_Device);
 
+        vkDestroyFence(m_Device, m_ImmediateFence, nullptr);
+        vkFreeCommandBuffers(m_Device, m_TransferCommandPool, 1, &m_ImmediateCmd);
+
         m_CommandLists.clear();
         m_Swapchain.reset();
 
         vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
+        vkDestroyCommandPool(m_Device, m_GraphicsCommandPool, nullptr);
         vkDestroyCommandPool(m_Device, m_TransferCommandPool, nullptr);
-
-        if (m_GraphicsCommandPool != VK_NULL_HANDLE)
-            vkDestroyCommandPool(m_Device, m_GraphicsCommandPool, nullptr);
 
         vmaDestroyAllocator(m_Allocator);
         vkDestroyDevice(m_Device, nullptr);
-        vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
-
-    #ifdef FL_DEBUG
-        auto vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)
-            vkGetInstanceProcAddr(m_Instance, "vkDestroyDebugUtilsMessengerEXT");
-        if (vkDestroyDebugUtilsMessengerEXT)
-            vkDestroyDebugUtilsMessengerEXT(m_Instance, m_DebugMessenger, nullptr);
-    #endif
-
-        vkDestroyInstance(m_Instance, nullptr);
     }
+
+    // =========================================================================
+    //  Resource creation
+    // =========================================================================
+
+    Scope<RHIBuffer> VulkanDevice::CreateBuffer(const BufferSpec& spec)
+    {
+        return CreateScope<VulkanBuffer>(m_Allocator, spec);
+    }
+
+    Scope<RHITexture> VulkanDevice::CreateTexture(const TextureSpec& spec)
+    {
+        auto texture = CreateScope<VulkanTexture>(m_Device, m_Allocator, spec);
+        texture->SetupForSetData(m_GraphicsQueue, m_TransferCommandPool);
+        return texture;
+    }
+
+    Scope<RHISampler> VulkanDevice::CreateSampler(const SamplerSpec& spec)
+    {
+        return CreateScope<VulkanSampler>(m_Device, spec);
+    }
+
+    Scope<RHIFramebuffer> VulkanDevice::CreateFramebuffer(const FramebufferSpec& spec)
+    {
+        return CreateScope<VulkanFramebuffer>(m_Device, spec);
+    }
+
+    Scope<RHIPipeline> VulkanDevice::CreatePipeline(const PipelineDesc& desc)
+    {
+        return CreateScope<VulkanPipeline>(m_Device, desc);
+    }
+
+    Scope<RHIRenderPass> VulkanDevice::CreateRenderPass(const RenderPassDesc& desc)
+    {
+        return CreateScope<VulkanRenderPass>(m_Device, desc);
+    }
+
+    Scope<RHIShader> VulkanDevice::CreateShader(ShaderStage stage, const std::vector<uint32_t>& spirv)
+    {
+        return CreateScope<VulkanShader>(m_Device, stage, spirv);
+    }
+
+    Scope<RHIFence> VulkanDevice::CreateFence(bool signaled)
+    {
+        return CreateScope<VulkanFence>(m_Device, signaled);
+    }
+
+    Scope<RHISemaphore> VulkanDevice::CreateSemaphore()
+    {
+        return CreateScope<VulkanSemaphore>(m_Device);
+    }
+
+    Scope<RHIDescriptorSetLayout> VulkanDevice::CreateDescriptorSetLayout(const DescriptorSetLayoutDesc& desc)
+    {
+        return CreateScope<VulkanDescriptorSetLayout>(m_Device, desc);
+    }
+
+    Scope<RHIDescriptorSet> VulkanDevice::CreateDescriptorSet(const RHIDescriptorSetLayout* layout)
+    {
+        // Передаём layoutDesc — VulkanDescriptorSet знает типы биндингов при BindBuffer
+        return CreateScope<VulkanDescriptorSet>(
+            m_Device,
+            m_DescriptorPool,
+            layout->GetHandle<VkDescriptorSetLayout>(),
+            layout->GetDesc());
+    }
+
+    // =========================================================================
+    //  Submit
+    // =========================================================================
+
+    void VulkanDevice::Submit(const SubmitDesc& desc)
+    {
+        FL_CORE_ASSERT(desc.CommandList, "Submit: CommandList is null!");
+
+        VkCommandBuffer cmd = desc.CommandList->GetHandle<VkCommandBuffer>();
+        VkFence         fence = desc.SignalFence ? desc.SignalFence->GetHandle<VkFence>() : VK_NULL_HANDLE;
+        VkSemaphore     waitSem = desc.WaitSemaphore ? desc.WaitSemaphore->GetHandle<VkSemaphore>() : VK_NULL_HANDLE;
+        VkSemaphore     signalSem = desc.SignalSemaphore ? desc.SignalSemaphore->GetHandle<VkSemaphore>() : VK_NULL_HANDLE;
+
+        VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+        VkSubmitInfo submitInfo{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &cmd;
+        submitInfo.waitSemaphoreCount = waitSem != VK_NULL_HANDLE ? 1 : 0;
+        submitInfo.pWaitSemaphores = waitSem != VK_NULL_HANDLE ? &waitSem : nullptr;
+        submitInfo.pWaitDstStageMask = waitSem != VK_NULL_HANDLE ? &waitStage : nullptr;
+        submitInfo.signalSemaphoreCount = signalSem != VK_NULL_HANDLE ? 1 : 0;
+        submitInfo.pSignalSemaphores = signalSem != VK_NULL_HANDLE ? &signalSem : nullptr;
+
+        FL_CORE_ASSERT(vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, fence) == VK_SUCCESS,
+            "Failed to submit Command Buffer");
+    }
+
+    void VulkanDevice::ImmediateSubmit(std::function<void(RHICommandList*)>&& fn)
+    {
+        vkResetFences(m_Device, 1, &m_ImmediateFence);
+        vkResetCommandBuffer(m_ImmediateCmd, 0);
+
+        VkCommandBufferBeginInfo beginInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        vkBeginCommandBuffer(m_ImmediateCmd, &beginInfo);
+
+        // Минимальный адаптер: вызывающий пишет команды через cmd->GetHandle<VkCommandBuffer>()
+        struct ImmediateAdapter final : RHICommandList
+        {
+            VkCommandBuffer Cmd = VK_NULL_HANDLE;
+
+            void Begin() override {}
+            void End()   override {}
+            void BeginRenderPass(RHIRenderPass*, RHIFramebuffer*, glm::vec4, float, uint8_t) override {}
+            void EndRenderPass()                                                              override {}
+            void SetViewport(float, float, float, float, float, float)                            override {}
+            void SetScissor(int32_t, int32_t, uint32_t, uint32_t)                              override {}
+            void SetPipeline(RHIPipeline*)                                                   override {}
+            void PushConstants(RHIPipeline*, ShaderStage, uint32_t, uint32_t, const void*)      override {}
+            void BindVertexBuffer(RHIBuffer*, uint64_t)                                      override {}
+            void BindIndexBuffer(RHIBuffer*, IndexType, uint64_t)                            override {}
+            void BindDescriptorSet(uint32_t, RHIDescriptorSet*, RHIPipeline*)               override {}
+            void Draw(uint32_t, uint32_t, uint32_t, uint32_t)                                   override {}
+            void DrawIndexed(uint32_t, uint32_t, uint32_t, int32_t, uint32_t)                   override {}
+            void DrawIndirect(RHIBuffer*, uint64_t, uint32_t)                                  override {}
+            void DrawIndexedIndirect(RHIBuffer*, uint64_t, uint32_t)                          override {}
+            void Dispatch(uint32_t, uint32_t, uint32_t)                                        override {}
+            void DispatchIndirect(RHIBuffer*, uint64_t)                                       override {}
+            void CopyBuffer(RHIBuffer*, RHIBuffer*, uint64_t, uint64_t, uint64_t)               override {}
+            void CopyBufferToTexture(RHIBuffer*, RHITexture*, const TextureRegion&)            override {}
+            void BlitTexture(RHITexture*, RHITexture*, TextureRegion, TextureRegion, FilterMode) override {}
+            void ResourceBarrier(RHITexture*, ResourceState, ResourceState)                    override {}
+            void BufferBarrier(RHIBuffer*, ResourceState, ResourceState)                       override {}
+            void* GetHandleImpl() const override { return Cmd; }
+        };
+
+        ImmediateAdapter adapter;
+        adapter.Cmd = m_ImmediateCmd;
+
+        fn(&adapter);
+
+        vkEndCommandBuffer(m_ImmediateCmd);
+
+        VkSubmitInfo submitInfo{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &m_ImmediateCmd;
+        vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, m_ImmediateFence);
+        vkWaitForFences(m_Device, 1, &m_ImmediateFence, VK_TRUE, UINT64_MAX);
+    }
+
+    // =========================================================================
+    //  Utils
+    // =========================================================================
+
+    void VulkanDevice::CopyBuffer(RHIBuffer* src, RHIBuffer* dst,
+        uint64_t size, uint64_t srcOffset, uint64_t dstOffset) const
+    {
+        VkBuffer     srcBuf = src->GetHandle<VkBuffer>();
+        VkBuffer     dstBuf = dst->GetHandle<VkBuffer>();
+        VkDeviceSize copySize = (size > 0) ? size : src->GetSize();
+
+        VkCommandBufferAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+        allocInfo.commandPool = m_TransferCommandPool;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandBufferCount = 1;
+
+        VkCommandBuffer cmd;
+        vkAllocateCommandBuffers(m_Device, &allocInfo, &cmd);
+
+        VkCommandBufferBeginInfo beginInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        vkBeginCommandBuffer(cmd, &beginInfo);
+
+        VkBufferCopy region{};
+        region.srcOffset = srcOffset;
+        region.dstOffset = dstOffset;
+        region.size = copySize;
+        vkCmdCopyBuffer(cmd, srcBuf, dstBuf, 1, &region);
+
+        vkEndCommandBuffer(cmd);
+
+        VkSubmitInfo submitInfo{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &cmd;
+        vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(m_GraphicsQueue);
+
+        vkFreeCommandBuffers(m_Device, m_TransferCommandPool, 1, &cmd);
+    }
+
+    DeviceMemoryStats VulkanDevice::GetMemoryStatistics() const
+    {
+        VmaBudget budgets[VK_MAX_MEMORY_HEAPS];
+        vmaGetHeapBudgets(m_Allocator, budgets);
+
+        DeviceMemoryStats result{};
+        result.AllocationBytes = budgets[0].statistics.allocationBytes;
+        result.AllocationCount = budgets[0].statistics.allocationCount;
+        result.BlockBytes = budgets[0].statistics.blockBytes;
+        result.BlockCount = budgets[0].statistics.blockCount;
+        result.Usage = budgets[0].usage;
+        result.Budget = budgets[0].budget;
+        return result;
+    }
+
+    void VulkanDevice::WaitIdle() const
+    {
+        vkDeviceWaitIdle(m_Device);
+    }
+
+    // =========================================================================
+    //  Private init
+    // =========================================================================
 
     void VulkanDevice::CreateInstance()
     {
+        static VkValidationFeaturesEXT validationFeatures{};
+        validationFeatures.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+
+        static std::array<VkValidationFeatureEnableEXT, 1> enables = {
+            VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT
+        };
+        validationFeatures.enabledValidationFeatureCount = static_cast<uint32_t>(enables.size());
+        validationFeatures.pEnabledValidationFeatures = enables.data();
+
         VkApplicationInfo appInfo{};
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         appInfo.pApplicationName = "Flux";
@@ -155,20 +356,20 @@ namespace Flux {
 
         std::vector<const char*> extensions = {
             VK_KHR_SURFACE_EXTENSION_NAME,
-    #ifdef _WIN32
+#ifdef _WIN32
             "VK_KHR_win32_surface",
-    #elif __APPLE__
+#elif __APPLE__
             "VK_MVK_macos_surface",
-    #endif
-    #ifdef FL_DEBUG
+#endif
+#ifdef FL_DEBUG
             VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-    #endif
+#endif
         };
 
         std::vector<const char*> layers;
-    #ifdef FL_DEBUG
+#ifdef FL_DEBUG
         layers.emplace_back("VK_LAYER_KHRONOS_validation");
-    #endif
+#endif
 
         VkInstanceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -177,6 +378,9 @@ namespace Flux {
         createInfo.ppEnabledExtensionNames = extensions.data();
         createInfo.enabledLayerCount = static_cast<uint32_t>(layers.size());
         createInfo.ppEnabledLayerNames = layers.data();
+#ifdef FL_DEBUG
+        createInfo.pNext = &validationFeatures;
+#endif
 
         FL_CORE_ASSERT(vkCreateInstance(&createInfo, nullptr, &m_Instance) == VK_SUCCESS,
             "Failed to create Vulkan Instance");
@@ -184,7 +388,7 @@ namespace Flux {
 
     void VulkanDevice::CreateDebugMessenger()
     {
-    #ifdef FL_DEBUG
+#ifdef FL_DEBUG
         VkDebugUtilsMessengerCreateInfoEXT createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
         createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
@@ -195,15 +399,15 @@ namespace Flux {
 
         auto func = (PFN_vkCreateDebugUtilsMessengerEXT)
             vkGetInstanceProcAddr(m_Instance, "vkCreateDebugUtilsMessengerEXT");
-
         FL_CORE_ASSERT(func, "Failed to load vkCreateDebugUtilsMessengerEXT");
         func(m_Instance, &createInfo, nullptr, &m_DebugMessenger);
-    #endif
+#endif
     }
 
     void VulkanDevice::CreateSurface(void* windowHandle)
     {
-        FL_CORE_ASSERT(glfwCreateWindowSurface(m_Instance, (GLFWwindow*)windowHandle, nullptr, &m_Surface) == VK_SUCCESS,
+        FL_CORE_ASSERT(
+            glfwCreateWindowSurface(m_Instance, (GLFWwindow*)windowHandle, nullptr, &m_Surface) == VK_SUCCESS,
             "Failed to create GLFW Surface");
     }
 
@@ -220,11 +424,10 @@ namespace Flux {
         {
             VkPhysicalDeviceProperties props;
             vkGetPhysicalDeviceProperties(device, &props);
-
             if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
             {
                 m_PhysicalDevice = device;
-                FL_CORE_INFO("Selected GPU: {0}", props.deviceName);
+                FL_CORE_INFO("Selected GPU: {}", props.deviceName);
                 return;
             }
         }
@@ -232,7 +435,7 @@ namespace Flux {
         m_PhysicalDevice = devices[0];
         VkPhysicalDeviceProperties props;
         vkGetPhysicalDeviceProperties(m_PhysicalDevice, &props);
-        FL_CORE_INFO("Selected GPU: {0}", props.deviceName);
+        FL_CORE_INFO("Selected GPU: {}", props.deviceName);
     }
 
     void VulkanDevice::CreateLogicalDevice()
@@ -248,16 +451,12 @@ namespace Flux {
 
         for (uint32_t i = 0; i < queueFamilyCount; i++)
         {
-            if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
-                graphicsFamily = i;
-
-            if (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT)
-                computeFamily = i;
+            if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) graphicsFamily = i;
+            if (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT)  computeFamily = i;
 
             VkBool32 presentSupport = false;
             vkGetPhysicalDeviceSurfaceSupportKHR(m_PhysicalDevice, i, m_Surface, &presentSupport);
-            if (presentSupport)
-                presentFamily = i;
+            if (presentSupport) presentFamily = i;
 
             if (graphicsFamily != UINT32_MAX && presentFamily != UINT32_MAX && computeFamily != UINT32_MAX)
                 break;
@@ -280,18 +479,26 @@ namespace Flux {
             queueCreateInfos.emplace_back(queueInfo);
         }
 
-        VkPhysicalDeviceFeatures deviceFeatures{};
-        deviceFeatures.samplerAnisotropy = VK_TRUE;
+        VkPhysicalDeviceVulkan12Features vulkan12Features{};
+        vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 
-        std::vector<const char*> deviceExtensions = {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME
-        };
+        VkPhysicalDeviceFeatures2 features2{};
+        features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        features2.pNext = &vulkan12Features;
+        vkGetPhysicalDeviceFeatures2(m_PhysicalDevice, &features2);
 
+        features2.features.samplerAnisotropy = VK_TRUE;
+        if (vulkan12Features.timelineSemaphore)   vulkan12Features.timelineSemaphore = VK_TRUE;
+        if (vulkan12Features.bufferDeviceAddress) vulkan12Features.bufferDeviceAddress = VK_TRUE;
+
+        std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+        
         VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        createInfo.pNext = &features2;
         createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
         createInfo.pQueueCreateInfos = queueCreateInfos.data();
-        createInfo.pEnabledFeatures = &deviceFeatures;
+        createInfo.pEnabledFeatures = nullptr;
         createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
         createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
@@ -334,14 +541,14 @@ namespace Flux {
             "Failed to create Descriptor Pool");
     }
 
-    void VulkanDevice::CreateCommandList()
+    void VulkanDevice::CreateCommandLists()
     {
-        VkCommandPoolCreateInfo poolInfo{};
-        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        poolInfo.queueFamilyIndex = m_GraphicsQueueFamilyIndex;
-        poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+        VkCommandPoolCreateInfo transferPoolInfo{};
+        transferPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        transferPoolInfo.queueFamilyIndex = m_GraphicsQueueFamilyIndex;
+        transferPoolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 
-        FL_CORE_ASSERT(vkCreateCommandPool(m_Device, &poolInfo, nullptr, &m_TransferCommandPool) == VK_SUCCESS,
+        FL_CORE_ASSERT(vkCreateCommandPool(m_Device, &transferPoolInfo, nullptr, &m_TransferCommandPool) == VK_SUCCESS,
             "Failed to create Transfer Command Pool");
 
         VkCommandPoolCreateInfo graphicsPoolInfo{};
@@ -354,154 +561,11 @@ namespace Flux {
 
         uint32_t imageCount = m_Swapchain->GetImageCount();
         m_CommandLists.reserve(imageCount);
-
         for (uint32_t i = 0; i < imageCount; i++)
         {
             m_CommandLists.emplace_back(
-                CreateScope<VulkanCommandList>(m_Device, m_GraphicsCommandPool, m_GraphicsQueue, m_Swapchain.get())
-            );
+                CreateScope<VulkanCommandList>(m_Device, m_GraphicsCommandPool, m_GraphicsQueue, m_Swapchain.get()));
         }
     }
 
-    Scope<RHIBuffer> VulkanDevice::CreateBuffer(const BufferSpec& spec)
-    {
-        return CreateScope<VulkanBuffer>(m_Allocator, spec);
-    }
-
-    Scope<RHITexture> VulkanDevice::CreateTexture(const TextureSpec& spec)
-    {
-        return CreateScope<VulkanTexture>(m_Device, m_GraphicsQueue, m_TransferCommandPool, m_Allocator, spec);
-    }
-
-    Scope<RHIFramebuffer> VulkanDevice::CreateFramebuffer(const FramebufferSpec& spec)
-    {
-        return CreateScope<VulkanFramebuffer>(m_Device, spec);
-    }
-
-    Scope<RHIPipeline> VulkanDevice::CreatePipeline(const PipelineDesc& desc)
-    {
-        return CreateScope<VulkanPipeline>(m_Device, desc);
-    }
-
-    Scope<RHIRenderPass> VulkanDevice::CreateRenderPass(const RenderPassDesc& desc)
-    {
-        return CreateScope<VulkanRenderPass>(m_Device, desc);
-    }
-
-    Scope<RHIShader> VulkanDevice::CreateShader(ShaderStage stage, const std::vector<uint32_t>& spirv)
-    {
-        return CreateScope<VulkanShader>(m_Device, stage, spirv);
-    }
-
-    Scope<RHIFence> VulkanDevice::CreateFence(bool signaled)
-    {
-        return CreateScope<VulkanFence>(m_Device, signaled);
-    }
-
-    Scope<RHISemaphore> VulkanDevice::CreateSemaphore()
-    {
-        return CreateScope<VulkanSemaphore>(m_Device);
-    }
-
-    Scope<RHIDescriptorSetLayout> VulkanDevice::CreateDescriptorSetLayout(const DescriptorSetLayoutDesc& desc)
-    {
-        return CreateScope<VulkanDescriptorSetLayout>(m_Device, desc);
-    }
-
-    Scope<RHIDescriptorSet> VulkanDevice::CreateDescriptorSet(const RHIDescriptorSetLayout* layout)
-    {
-        auto vkLayout = layout->GetHandle<VkDescriptorSetLayout>();
-        return CreateScope<VulkanDescriptorSet>(m_Device, m_DescriptorPool, vkLayout);
-    }
-
-    DeviceMemoryStats VulkanDevice::GetMemoryStatistics() const
-    {
-        VmaBudget budgets[VK_MAX_MEMORY_HEAPS];
-        vmaGetHeapBudgets(m_Allocator, budgets);
-        
-        DeviceMemoryStats memStats{};
-        memStats.AllocationBytes = budgets->statistics.allocationBytes;
-        memStats.AllocationCount = budgets->statistics.allocationCount;
-        memStats.BlockBytes = budgets->statistics.blockBytes;
-        memStats.BlockCount = budgets->statistics.blockCount;
-        memStats.Usage = budgets->usage;
-        memStats.Budget = budgets->budget;
-
-        return memStats;
-    }
-
-    void VulkanDevice::CopyBuffer(RHIBuffer* src, RHIBuffer* dst) const
-    {
-        VkBuffer srcBuffer = static_cast<VulkanBuffer*>(src)->GetHandle<VkBuffer>();
-        VkBuffer dstBuffer = static_cast<VulkanBuffer*>(dst)->GetHandle<VkBuffer>();
-        VkDeviceSize size = src->GetSize();
-
-        VkCommandBufferAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandPool = m_TransferCommandPool; 
-        allocInfo.commandBufferCount = 1;
-
-        VkCommandBuffer commandBuffer;
-        vkAllocateCommandBuffers(m_Device, &allocInfo, &commandBuffer);
-
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-        vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-        VkBufferCopy copyRegion{};
-        copyRegion.srcOffset = 0;
-        copyRegion.dstOffset = 0;
-        copyRegion.size = size;
-        vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-        vkEndCommandBuffer(commandBuffer);
-
-        VkSubmitInfo submitInfo{};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffer;
-
-        vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(m_GraphicsQueue);
-
-        vkFreeCommandBuffers(m_Device, m_TransferCommandPool, 1, &commandBuffer);
-    }
-
-    VkCommandBuffer VulkanDevice::BeginSingleTimeCommands()
-    {
-        VkCommandBufferAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandPool = m_TransferCommandPool; 
-        allocInfo.commandBufferCount = 1;
-
-        VkCommandBuffer cmd;
-        vkAllocateCommandBuffers(m_Device, &allocInfo, &cmd);
-
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-        vkBeginCommandBuffer(cmd, &beginInfo);
-        return cmd;
-    }
-
-    void VulkanDevice::EndSingleTimeCommands(VkCommandBuffer cmd)
-    {
-        vkEndCommandBuffer(cmd);
-
-        VkSubmitInfo submitInfo{};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &cmd;
-
-        vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(m_GraphicsQueue);
-
-        vkFreeCommandBuffers(m_Device, m_TransferCommandPool, 1, &cmd);
-    }
-
-}
+} // namespace Flux

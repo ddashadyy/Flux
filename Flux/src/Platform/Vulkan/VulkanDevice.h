@@ -1,7 +1,6 @@
 #pragma once
 
-
-#include "FLux/Renderer/RHIDevice.h"
+#include "Flux/Renderer/RHIDevice.h"
 
 #include "VulkanSwapchain.h"
 #include "VulkanCommandList.h"
@@ -11,39 +10,58 @@
 
 namespace Flux {
 
-    class VulkanDevice : public RHIDevice {
+    class VulkanDevice final : public RHIDevice
+    {
     public:
         VulkanDevice(void* windowHandle, uint32_t width, uint32_t height);
         ~VulkanDevice() override;
 
-        Scope<RHIBuffer>              CreateBuffer(const BufferSpec& spec)                       override;
-        Scope<RHITexture>             CreateTexture(const TextureSpec& spec)                     override;
-        Scope<RHIFramebuffer>         CreateFramebuffer(const FramebufferSpec& spec)             override;
-        Scope<RHIPipeline>            CreatePipeline(const PipelineDesc& spec)                   override;
-        Scope<RHIRenderPass>          CreateRenderPass(const RenderPassDesc& spec)               override;
+        // -----------------------------------------------------------------
+        // Resource creation
+        // -----------------------------------------------------------------
+        Scope<RHIBuffer>              CreateBuffer(const BufferSpec& spec)                              override;
+        Scope<RHITexture>             CreateTexture(const TextureSpec& spec)                            override;
+        Scope<RHISampler>             CreateSampler(const SamplerSpec& spec)                            override;
+        Scope<RHIFramebuffer>         CreateFramebuffer(const FramebufferSpec& spec)                    override;
+        Scope<RHIPipeline>            CreatePipeline(const PipelineDesc& desc)                          override;
+        Scope<RHIRenderPass>          CreateRenderPass(const RenderPassDesc& desc)                      override;
         Scope<RHIShader>              CreateShader(ShaderStage stage, const std::vector<uint32_t>& spirv) override;
-        Scope<RHIFence>               CreateFence(bool signaled = false)                         override;
-        Scope<RHISemaphore>           CreateSemaphore()                                          override;
-        Scope<RHIDescriptorSetLayout> CreateDescriptorSetLayout(const DescriptorSetLayoutDesc& desc) override;
-        Scope<RHIDescriptorSet>       CreateDescriptorSet(const RHIDescriptorSetLayout* layout)  override;
+        Scope<RHIFence>               CreateFence(bool signaled = false)                                override;
+        Scope<RHISemaphore>           CreateSemaphore()                                                 override;
+        Scope<RHIDescriptorSetLayout> CreateDescriptorSetLayout(const DescriptorSetLayoutDesc& desc)    override;
+        Scope<RHIDescriptorSet>       CreateDescriptorSet(const RHIDescriptorSetLayout* layout)         override;
 
+        // -----------------------------------------------------------------
+        // Command lists
+        // -----------------------------------------------------------------
         RHICommandList* GetCommandList(uint32_t index = 0) override { return m_CommandLists[index].get(); }
-        RHISwapchain* GetSwapchain()     override { return m_Swapchain.get(); }
+        RHISwapchain* GetSwapchain()                     override { return m_Swapchain.get(); }
+
+        // -----------------------------------------------------------------
+        // Submit — перенесён из CommandList
+        // -----------------------------------------------------------------
+        void Submit(const SubmitDesc& desc)                                    override;
+        void ImmediateSubmit(std::function<void(RHICommandList*)>&& fn)        override;
+
+        // -----------------------------------------------------------------
+        // Utils
+        // -----------------------------------------------------------------
+        void CopyBuffer(RHIBuffer* src, RHIBuffer* dst,
+            uint64_t size = 0, uint64_t srcOffset = 0, uint64_t dstOffset = 0) const override;
 
         DeviceMemoryStats GetMemoryStatistics() const override;
+        void              WaitIdle()            const override;
 
-        void CopyBuffer(RHIBuffer* src, RHIBuffer* dst) const override;
-
-        VkCommandBuffer BeginSingleTimeCommands();
-        void            EndSingleTimeCommands(VkCommandBuffer cmd);
-
-        VkPhysicalDevice GetPhysicalDevice()  const { return m_PhysicalDevice; }
-        VmaAllocator     GetAllocator()       const { return m_Allocator; }
-        VkDescriptorPool GetDescriptorPool()  const { return m_DescriptorPool; }
-
-        VkInstance  GetInstance()            const { return m_Instance; }
-        uint32_t    GetGraphicsQueueFamily() const { return m_GraphicsQueueFamilyIndex; }
-        VkQueue     GetGraphicsQueue()       const { return m_GraphicsQueue; }
+        // -----------------------------------------------------------------
+        // Vulkan-specific accessors (для внутреннего использования)
+        // -----------------------------------------------------------------
+        VkPhysicalDevice GetPhysicalDevice()   const { return m_PhysicalDevice; }
+        VmaAllocator     GetAllocator()        const { return m_Allocator; }
+        VkDescriptorPool GetDescriptorPool()   const { return m_DescriptorPool; }
+        VkInstance       GetInstance()         const { return m_Instance; }
+        uint32_t         GetGraphicsFamily()   const { return m_GraphicsQueueFamilyIndex; }
+        VkQueue          GetGraphicsQueue()    const { return m_GraphicsQueue; }
+        VkCommandPool    GetTransferPool()     const { return m_TransferCommandPool; }
 
     private:
         void CreateInstance();
@@ -53,30 +71,33 @@ namespace Flux {
         void CreateLogicalDevice();
         void CreateAllocator();
         void CreateDescriptorPool();
-        void CreateCommandList();
+        void CreateCommandLists();
 
     private:
-        VkInstance               m_Instance       = VK_NULL_HANDLE;
+        VkInstance               m_Instance = VK_NULL_HANDLE;
         VkDebugUtilsMessengerEXT m_DebugMessenger = VK_NULL_HANDLE;
-        VkSurfaceKHR             m_Surface        = VK_NULL_HANDLE;
+        VkSurfaceKHR             m_Surface = VK_NULL_HANDLE;
         VkPhysicalDevice         m_PhysicalDevice = VK_NULL_HANDLE;
-        VkDevice                 m_Device         = VK_NULL_HANDLE;
+        VkDevice                 m_Device = VK_NULL_HANDLE;
 
-        VkQueue  m_GraphicsQueue            = VK_NULL_HANDLE;
-        VkQueue  m_PresentQueue             = VK_NULL_HANDLE;
-        VkQueue  m_ComputeQueue             = VK_NULL_HANDLE;
+        VkQueue  m_GraphicsQueue = VK_NULL_HANDLE;
+        VkQueue  m_PresentQueue = VK_NULL_HANDLE;
+        VkQueue  m_ComputeQueue = VK_NULL_HANDLE;
         uint32_t m_GraphicsQueueFamilyIndex = 0;
 
-        VmaAllocator     m_Allocator           = nullptr;
-        VkDescriptorPool m_DescriptorPool      = VK_NULL_HANDLE;
+        VmaAllocator     m_Allocator = nullptr;
+        VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
         VkCommandPool    m_TransferCommandPool = VK_NULL_HANDLE;
         VkCommandPool    m_GraphicsCommandPool = VK_NULL_HANDLE;
 
-        Scope<VulkanSwapchain>   m_Swapchain;
+        Scope<VulkanSwapchain>                m_Swapchain;
         std::vector<Scope<VulkanCommandList>> m_CommandLists;
+
+        VkCommandBuffer m_ImmediateCmd = VK_NULL_HANDLE;
+        VkFence         m_ImmediateFence = VK_NULL_HANDLE;
 
     protected:
         void* GetHandleImpl() const override { return m_Device; }
     };
 
-}
+} // namespace Flux
