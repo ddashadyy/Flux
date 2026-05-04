@@ -20,10 +20,15 @@ namespace Flux {
         virtual void     Present(RHISemaphore* semaphore, uint32_t imageIndex) = 0;
         virtual void     Resize(uint32_t w, uint32_t h) = 0;
 
+        virtual bool     NeedsResize() const = 0;
+
         virtual uint32_t    GetCurrentImageIndex() const = 0;
         virtual Format      GetFormat() const = 0;
         virtual uint32_t    GetImageCount() const = 0;
         virtual RHITexture* GetColorTarget(uint32_t index) const = 0;
+
+        virtual uint32_t GetWidth()  const = 0;
+        virtual uint32_t GetHeight() const = 0;
     };
 
 }
