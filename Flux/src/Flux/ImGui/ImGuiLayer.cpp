@@ -50,7 +50,7 @@ namespace Flux {
         initInfo.Instance = vkDevice.GetInstance();
         initInfo.PhysicalDevice = vkDevice.GetPhysicalDevice();
         initInfo.Device = vkDevice.GetHandle<VkDevice>();
-        initInfo.QueueFamily = vkDevice.GetGraphicsQueueFamily();
+        initInfo.QueueFamily = vkDevice.GetGraphicsFamily();
         initInfo.Queue = vkDevice.GetGraphicsQueue();
         initInfo.DescriptorPool = vkDevice.GetDescriptorPool();
         initInfo.MinImageCount = 2;
