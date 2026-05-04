@@ -64,7 +64,7 @@ namespace Flux {
 
         virtual Scope<RHIBuffer>              CreateBuffer(const BufferSpec& spec)                         = 0;
         virtual Scope<RHITexture>             CreateTexture(const TextureSpec& spec)                       = 0;
-        virtual Scope<RHISampler>             CreateSampler(const SamplerSpec& spec)                       = 0; // новый
+        virtual Scope<RHISampler>             CreateSampler(const SamplerSpec& spec)                       = 0; 
         virtual Scope<RHIFramebuffer>         CreateFramebuffer(const FramebufferSpec& spec)               = 0;
         virtual Scope<RHIPipeline>            CreatePipeline(const PipelineDesc& desc)                     = 0;
         virtual Scope<RHIRenderPass>          CreateRenderPass(const RenderPassDesc& desc)                 = 0;
