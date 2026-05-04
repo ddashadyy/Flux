@@ -33,20 +33,14 @@
     ClassName(const ClassName&) = delete; \
     ClassName& operator=(const ClassName&) = delete; \
 
-#define ENABLE_BITWISE_OPERATORS(EnumType) \
-    inline EnumType operator|(EnumType a, EnumType b) { \
-        return static_cast<EnumType>(static_cast<std::underlying_type_t<EnumType>>(a) | static_cast<std::underlying_type_t<EnumType>>(b)); \
-    } \
-    inline EnumType& operator|=(EnumType& a, EnumType b) { \
-        a = a | b; \
-        return a; \
-    } \
-    inline EnumType operator&(EnumType a, EnumType b) { \
-        return static_cast<EnumType>(static_cast<std::underlying_type_t<EnumType>>(a) & static_cast<std::underlying_type_t<EnumType>>(b)); \
-    } \
-    inline bool operator==(EnumType a, std::underlying_type_t<EnumType> b) { \
-        return static_cast<std::underlying_type_t<EnumType>>(a) == b; \
-    }
+#define FL_ENABLE_BITWISE_OPERATORS(EnumType) \
+    using FL_UT_##EnumType = std::underlying_type_t<EnumType>; \
+    constexpr EnumType operator |  (EnumType a, EnumType b) { return static_cast<EnumType>(static_cast<FL_UT_##EnumType>(a) | static_cast<FL_UT_##EnumType>(b)); } \
+    constexpr EnumType operator &  (EnumType a, EnumType b) { return static_cast<EnumType>(static_cast<FL_UT_##EnumType>(a) & static_cast<FL_UT_##EnumType>(b)); } \
+    constexpr EnumType operator ~  (EnumType a)                { return static_cast<EnumType>(~static_cast<FL_UT_##EnumType>(a)); } \
+    constexpr EnumType& operator |= (EnumType& a, EnumType b) { a = a | b; return a; } \
+    constexpr EnumType& operator &= (EnumType& a, EnumType b) { a = a & b; return a; } \
+    constexpr bool HasFlag(EnumType value, EnumType flag)     { return (static_cast<FL_UT_##EnumType>(value) & static_cast<FL_UT_##EnumType>(flag)) != 0; }
 
 
 namespace Flux {
