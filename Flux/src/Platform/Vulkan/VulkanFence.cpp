@@ -27,11 +27,14 @@ namespace Flux {
 
 	void VulkanFence::Wait(uint64_t timeout)
 	{
-		vkWaitForFences(m_Device, 1, &m_Fence, VK_TRUE, timeout);
+		VkResult result = vkWaitForFences(m_Device, 1, &m_Fence, VK_TRUE, timeout);
+		FL_CORE_WARN("vkWaitForFences result: {}", (int)result);
+		FL_CORE_ASSERT(result == VK_SUCCESS, "vkWaitForFences failed");
 	}
 
 	void VulkanFence::Reset()
 	{
+		FL_CORE_TRACE("VulkanFence::Reset fence={}", (void*)m_Fence);
 		vkResetFences(m_Device, 1, &m_Fence);
 	}
 
