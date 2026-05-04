@@ -1,10 +1,19 @@
 #pragma once
 
-
 #include "RHICommon.h"
+
 #include <string>
+#include <vector>
 
 namespace Flux {
+
+    struct ShaderSpec
+    {
+        ShaderStage           Stage      = ShaderStage::Vertex;
+        std::vector<uint32_t> Spirv      = {};
+        std::string           EntryPoint = "main";
+        const char*           DebugName  = nullptr;
+    };
 
     class RHIShader
     {
@@ -19,7 +28,6 @@ namespace Flux {
 
     protected:
         virtual void* GetHandleImpl() const = 0;
-
     };
 
-}
+} // namespace Flux
