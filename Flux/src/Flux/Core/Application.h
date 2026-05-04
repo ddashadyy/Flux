@@ -38,7 +38,6 @@ namespace Flux {
         static Application& Get() { return *s_Instance; }
 
         AssetManager& GetAssetManager() { return *m_AssetManager; }
-        Renderer&     GetRenderer()     { return *m_Renderer; }
 
     private:
         bool OnWindowClose(WindowCloseEvent& e);
@@ -51,7 +50,6 @@ namespace Flux {
         Scope<RHIDevice>    m_Device;
         Scope<FrameSync>    m_FrameSync;
         Scope<AssetManager> m_AssetManager;
-        Scope<Renderer>     m_Renderer;
 
         uint32_t m_CurrentFrame = 0;
         uint32_t m_MaxFrames = 0;

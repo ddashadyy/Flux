@@ -26,7 +26,6 @@ namespace Flux {
 
         m_FrameSync = CreateScope<FrameSync>(*m_Device, m_MaxFrames);
         m_AssetManager = CreateScope<AssetManager>(*m_Device);
-        m_Renderer = CreateScope<Renderer>(*m_Device);
 
         m_ImGuiLayer = new ImGuiLayer();
         PushOverlay(m_ImGuiLayer);
@@ -68,6 +67,7 @@ namespace Flux {
 
     bool Application::OnWindowResize(WindowResizeEvent& e)
     {
+        m_Device->WaitIdle();
         if (e.GetWidth() == 0 || e.GetHeight() == 0)
             return false;
 
@@ -82,6 +82,8 @@ namespace Flux {
     void Application::RenderFrame()
     {
         auto* swapchain = m_Device->GetSwapchain();
+
+        FL_CORE_TRACE("RenderFrame: currentFrame={}", m_CurrentFrame);
 
         m_FrameSync->GetFrameFence(m_CurrentFrame).Wait();
         m_FrameSync->GetFrameFence(m_CurrentFrame).Reset();
@@ -109,11 +111,12 @@ namespace Flux {
 
         cmdList->End();
 
-        cmdList->Submit(
-            &m_FrameSync->GetFrameFence(m_CurrentFrame),
-            &m_FrameSync->GetImageAvailable(m_CurrentFrame),
-            &m_FrameSync->GetRenderFinished(m_CurrentFrame)
-        );
+        SubmitDesc submitDesc{};
+        submitDesc.CommandList = cmdList;
+        submitDesc.SignalFence = &m_FrameSync->GetFrameFence(m_CurrentFrame);
+        submitDesc.WaitSemaphore = &m_FrameSync->GetImageAvailable(m_CurrentFrame);
+        submitDesc.SignalSemaphore = &m_FrameSync->GetRenderFinished(m_CurrentFrame);
+        m_Device->Submit(submitDesc);
 
         swapchain->Present(&m_FrameSync->GetRenderFinished(m_CurrentFrame), imageIndex);
 
