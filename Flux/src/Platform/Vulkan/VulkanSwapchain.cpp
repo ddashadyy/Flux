@@ -2,38 +2,31 @@
 #include "VulkanSwapchain.h"
 #include "VulkanSemaphore.h"
 
-
 namespace Flux {
-        
-    
+
     static VkSurfaceFormatKHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats)
     {
-        for (auto& format : formats)
-        {
-            if (format.format == VK_FORMAT_B8G8R8A8_UNORM &&
-                format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-                return format;
-        }
+        for (const auto& f : formats)
+            if (f.format == VK_FORMAT_B8G8R8A8_UNORM && f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+                return f;
         return formats[0];
     }
 
     static VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& modes)
     {
-        for (auto& mode : modes)
-            if (mode == VK_PRESENT_MODE_MAILBOX_KHR) return mode;
-        
-        return VK_PRESENT_MODE_FIFO_KHR; 
+        for (const auto& m : modes)
+            if (m == VK_PRESENT_MODE_MAILBOX_KHR) return m;
+        return VK_PRESENT_MODE_FIFO_KHR;
     }
 
-    static VkExtent2D ChooseExtent(const VkSurfaceCapabilitiesKHR& capabilities, uint32_t width, uint32_t height)
+    static VkExtent2D ChooseExtent(const VkSurfaceCapabilitiesKHR& caps, uint32_t w, uint32_t h)
     {
-        if (capabilities.currentExtent.width != UINT32_MAX)
-            return capabilities.currentExtent;
-
-        VkExtent2D extent{ width, height };
-        extent.width = std::clamp(extent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-        extent.height = std::clamp(extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
-        return extent;
+        if (caps.currentExtent.width != UINT32_MAX)
+            return caps.currentExtent;
+        return {
+            std::clamp(w, caps.minImageExtent.width,  caps.maxImageExtent.width),
+            std::clamp(h, caps.minImageExtent.height, caps.maxImageExtent.height)
+        };
     }
 
     VulkanSwapchain::VulkanSwapchain(VkDevice device, VkPhysicalDevice physicalDevice,
@@ -44,7 +37,6 @@ namespace Flux {
     {
         CreateSwapchain(width, height);
         CreateImageViews();
-
         FL_CORE_INFO("Created Vulkan Swapchain {}x{}", width, height);
     }
 
@@ -53,29 +45,57 @@ namespace Flux {
         Cleanup();
     }
 
+    // -------------------------------------------------------------------------
+    // AcquireNextImage — обрабатываем OUT_OF_DATE
+    // -------------------------------------------------------------------------
+
     uint32_t VulkanSwapchain::AcquireNextImage(RHISemaphore* semaphore)
     {
-        auto vkSemaphore = semaphore->GetHandle<VkSemaphore>();
+        VkSemaphore vkSem = semaphore->GetHandle<VkSemaphore>();
 
-        vkAcquireNextImageKHR(m_Device, m_Swapchain, UINT64_MAX,
-            vkSemaphore, VK_NULL_HANDLE, &m_CurrentImageIndex);
+        VkResult result = vkAcquireNextImageKHR(
+            m_Device, m_Swapchain, UINT64_MAX,
+            vkSem, VK_NULL_HANDLE, &m_CurrentImageIndex);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR)
+        {
+            // Swapchain устарел (resize произошёл до AcquireNextImage)
+            // Сигнализируем наверх — Renderer должен Resize
+            m_NeedsResize = true;
+            return UINT32_MAX;
+        }
+
+        // SUBOPTIMAL — продолжаем этот кадр, resize после Present
+        if (result == VK_SUBOPTIMAL_KHR)
+            m_NeedsResize = true;
+
+        FL_CORE_ASSERT(result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR,
+            "vkAcquireNextImageKHR failed");
 
         return m_CurrentImageIndex;
     }
 
+    // -------------------------------------------------------------------------
+    // Present — обрабатываем OUT_OF_DATE / SUBOPTIMAL
+    // -------------------------------------------------------------------------
+
     void VulkanSwapchain::Present(RHISemaphore* semaphore, uint32_t imageIndex)
     {
-        auto vkSemaphore = semaphore->GetHandle<VkSemaphore>();
+        VkSemaphore vkSem = semaphore->GetHandle<VkSemaphore>();
 
-        VkPresentInfoKHR presentInfo{};
-        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        VkPresentInfoKHR presentInfo{ VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
         presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = &vkSemaphore;
+        presentInfo.pWaitSemaphores = &vkSem;
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = &m_Swapchain;
         presentInfo.pImageIndices = &imageIndex;
 
-        vkQueuePresentKHR(m_PresentQueue, &presentInfo);
+        VkResult result = vkQueuePresentKHR(m_PresentQueue, &presentInfo);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+            m_NeedsResize = true;
+        else
+            FL_CORE_ASSERT(result == VK_SUCCESS, "vkQueuePresentKHR failed");
     }
 
     void VulkanSwapchain::Resize(uint32_t w, uint32_t h)
@@ -84,8 +104,8 @@ namespace Flux {
         Cleanup();
         CreateSwapchain(w, h);
         CreateImageViews();
-
-        FL_CORE_INFO("Recreated Vulkan Swapchain {0}x{1}", w, h);
+        m_NeedsResize = false;
+        FL_CORE_INFO("Recreated Vulkan Swapchain {}x{}", w, h);
     }
 
     Format VulkanSwapchain::GetFormat() const
@@ -94,58 +114,56 @@ namespace Flux {
         {
         case VK_FORMAT_B8G8R8A8_UNORM: return Format::B8G8R8A8_UNORM;
         case VK_FORMAT_R8G8B8A8_UNORM: return Format::R8G8B8A8_UNORM;
-        default:                       return Format::B8G8R8A8_UNORM;
+        default:                        return Format::B8G8R8A8_UNORM;
         }
     }
 
     void VulkanSwapchain::CreateSwapchain(uint32_t width, uint32_t height)
     {
-        VkSurfaceCapabilitiesKHR capabilities;
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_PhysicalDevice, m_Surface, &capabilities);
+        VkSurfaceCapabilitiesKHR caps;
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_PhysicalDevice, m_Surface, &caps);
 
-        uint32_t formatCount;
-        vkGetPhysicalDeviceSurfaceFormatsKHR(m_PhysicalDevice, m_Surface, &formatCount, nullptr);
-        std::vector<VkSurfaceFormatKHR> formats(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(m_PhysicalDevice, m_Surface, &formatCount, formats.data());
+        uint32_t fmtCount;
+        vkGetPhysicalDeviceSurfaceFormatsKHR(m_PhysicalDevice, m_Surface, &fmtCount, nullptr);
+        std::vector<VkSurfaceFormatKHR> formats(fmtCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(m_PhysicalDevice, m_Surface, &fmtCount, formats.data());
 
-        uint32_t presentModeCount;
-        vkGetPhysicalDeviceSurfacePresentModesKHR(m_PhysicalDevice, m_Surface, &presentModeCount, nullptr);
-        std::vector<VkPresentModeKHR> presentModes(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(m_PhysicalDevice, m_Surface, &presentModeCount, presentModes.data());
+        uint32_t pmCount;
+        vkGetPhysicalDeviceSurfacePresentModesKHR(m_PhysicalDevice, m_Surface, &pmCount, nullptr);
+        std::vector<VkPresentModeKHR> presentModes(pmCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(m_PhysicalDevice, m_Surface, &pmCount, presentModes.data());
 
-        auto surfaceFormat = ChooseSurfaceFormat(formats);
+        auto surfaceFmt = ChooseSurfaceFormat(formats);
         auto presentMode = ChoosePresentMode(presentModes);
-        auto extent = ChooseExtent(capabilities, width, height);
+        auto extent = ChooseExtent(caps, width, height);
 
-        uint32_t imageCount = capabilities.minImageCount + 1;
-        if (capabilities.maxImageCount > 0)
-            imageCount = std::min(imageCount, capabilities.maxImageCount);
+        uint32_t imageCount = caps.minImageCount + 1;
+        if (caps.maxImageCount > 0)
+            imageCount = std::min(imageCount, caps.maxImageCount);
 
-        VkSwapchainCreateInfoKHR createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        createInfo.surface = m_Surface;
-        createInfo.minImageCount = imageCount;
-        createInfo.imageFormat = surfaceFormat.format;
-        createInfo.imageColorSpace = surfaceFormat.colorSpace;
-        createInfo.imageExtent = extent;
-        createInfo.imageArrayLayers = 1;
-        createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        createInfo.preTransform = capabilities.currentTransform;
-        createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-        createInfo.presentMode = presentMode;
-        createInfo.clipped = VK_TRUE;
-        createInfo.oldSwapchain = VK_NULL_HANDLE;
+        VkSwapchainCreateInfoKHR info{ VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
+        info.surface = m_Surface;
+        info.minImageCount = imageCount;
+        info.imageFormat = surfaceFmt.format;
+        info.imageColorSpace = surfaceFmt.colorSpace;
+        info.imageExtent = extent;
+        info.imageArrayLayers = 1;
+        info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        info.preTransform = caps.currentTransform;
+        info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+        info.presentMode = presentMode;
+        info.clipped = VK_TRUE;
+        info.oldSwapchain = VK_NULL_HANDLE;
 
-        FL_CORE_ASSERT(vkCreateSwapchainKHR(m_Device, &createInfo, nullptr, &m_Swapchain) == VK_SUCCESS,
+        FL_CORE_ASSERT(vkCreateSwapchainKHR(m_Device, &info, nullptr, &m_Swapchain) == VK_SUCCESS,
             "Failed to create Swapchain");
 
-        // images
         vkGetSwapchainImagesKHR(m_Device, m_Swapchain, &imageCount, nullptr);
         m_Images.resize(imageCount);
         vkGetSwapchainImagesKHR(m_Device, m_Swapchain, &imageCount, m_Images.data());
 
-        m_Format = surfaceFormat.format;
+        m_Format = surfaceFmt.format;
         m_Extent = extent;
     }
 
@@ -156,8 +174,7 @@ namespace Flux {
 
         for (size_t i = 0; i < m_Images.size(); i++)
         {
-            VkImageViewCreateInfo viewInfo{};
-            viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            VkImageViewCreateInfo viewInfo{ VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
             viewInfo.image = m_Images[i];
             viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
             viewInfo.format = m_Format;
@@ -171,19 +188,22 @@ namespace Flux {
                 "Failed to create Swapchain ImageView");
 
             m_ColorTargets[i] = CreateScope<VulkanSwapchainTexture>(
-                m_Images[i], m_ImageViews[i], GetFormat(),
-                m_Extent.width, m_Extent.height
-            );
+                m_Images[i], m_ImageViews[i], GetFormat(), m_Extent.width, m_Extent.height);
         }
     }
 
     void VulkanSwapchain::Cleanup()
     {
-        for (auto& imageView : m_ImageViews)
-            vkDestroyImageView(m_Device, imageView, nullptr);
+        // Сначала очищаем texture wrappers — они не владеют image/view, но держат указатели
+        m_ColorTargets.clear();
+
+        for (auto& iv : m_ImageViews)
+            vkDestroyImageView(m_Device, iv, nullptr);
+        m_ImageViews.clear();
+        m_Images.clear();
 
         vkDestroySwapchainKHR(m_Device, m_Swapchain, nullptr);
+        m_Swapchain = VK_NULL_HANDLE;
     }
 
-
-}
+} // namespace Flux
