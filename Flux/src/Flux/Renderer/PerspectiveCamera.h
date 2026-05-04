@@ -8,6 +8,7 @@ namespace Flux {
     class PerspectiveCamera : public Camera
     {
     public:
+        PerspectiveCamera() = default;
         PerspectiveCamera(float fov, float aspectRatio, float nearClip, float farClip);
         virtual ~PerspectiveCamera() = default;
 
