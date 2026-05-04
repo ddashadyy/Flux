@@ -1,9 +1,8 @@
 #pragma once
 
-
 #include "RHICommon.h"
-#include <vector>
 
+#include <vector>
 
 namespace Flux {
 
@@ -12,44 +11,58 @@ namespace Flux {
         Undefined              = 0,
         ColorAttachment        = 1,
         DepthStencilAttachment = 2,
-        ShaderReadOnly         = 3,
-        Present                = 4,
+        DepthStencilReadOnly   = 3, // для shadow map sampling
+        ShaderReadOnly         = 4,
+        TransferSrc            = 5,
+        TransferDst            = 6,
+        Present                = 7,
     };
 
     enum class AttachmentLoadOp : uint8_t
-    { 
-        Load     = 0, 
-        Clear    = 1, 
-        DontCare = 2
+    {
+        Load     = 0,
+        Clear    = 1,
+        DontCare = 2,
     };
 
     enum class AttachmentStoreOp : uint8_t
-    { 
-        Store    = 0, 
-        DontCare = 1
+    {
+        Store    = 0,
+        DontCare = 1,
     };
 
     struct RenderPassDesc
     {
         std::vector<Format> ColorFormats = {};
-        Format              DepthFormat = Format::D32_SFLOAT;
 
-        bool                HasDepth = false;
-        bool                DepthReadOnly = false; // для shadow map
+        // Depth
+        Format            DepthFormat    = Format::D32_SFLOAT;
+        bool              HasDepth       = false;
+        bool              DepthReadOnly  = false; // shadow map — читаем, не пишем
 
-        SampleCount         Samples = SampleCount::x1;
+        SampleCount       Samples        = SampleCount::x1;
 
-        AttachmentLoadOp  ColorLoadOp = AttachmentLoadOp::Clear;
-        AttachmentStoreOp ColorStoreOp = AttachmentStoreOp::Store;
-        AttachmentLoadOp  DepthLoadOp = AttachmentLoadOp::Clear;
-        AttachmentStoreOp DepthStoreOp = AttachmentStoreOp::DontCare;
+        // Color attachment ops
+        AttachmentLoadOp  ColorLoadOp    = AttachmentLoadOp::Clear;
+        AttachmentStoreOp ColorStoreOp   = AttachmentStoreOp::Store;
 
-        ImageLayout ColorInitialLayout = ImageLayout::Undefined; 
-        ImageLayout ColorFinalLayout = ImageLayout::Present;
+        // Depth attachment ops
+        AttachmentLoadOp  DepthLoadOp    = AttachmentLoadOp::Clear;
+        AttachmentStoreOp DepthStoreOp   = AttachmentStoreOp::DontCare;
 
+        // Layouts
+        ImageLayout ColorInitialLayout   = ImageLayout::Undefined;
+        ImageLayout ColorFinalLayout     = ImageLayout::Present;  // для swapchain рендера
+        ImageLayout DepthInitialLayout   = ImageLayout::Undefined;
+        ImageLayout DepthFinalLayout     = ImageLayout::DepthStencilAttachment;
+
+        // MSAA resolve — нужен если Samples > x1
+        bool        HasResolve           = false;
+        ImageLayout ResolveInitialLayout = ImageLayout::Undefined;
+        ImageLayout ResolveFinalLayout   = ImageLayout::Present;
     };
 
-    class RHIRenderPass 
+    class RHIRenderPass
     {
     public:
         virtual ~RHIRenderPass() = default;
@@ -65,4 +78,5 @@ namespace Flux {
     protected:
         virtual void* GetHandleImpl() const = 0;
     };
-}
+
+} // namespace Flux
