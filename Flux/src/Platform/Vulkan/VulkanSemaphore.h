@@ -13,10 +13,6 @@ namespace Flux {
 		VulkanSemaphore(VkDevice device);
 		~VulkanSemaphore();
 
-		// сигналится и ждет через сабмит очереди
-		void Signal() override {};
-		void Wait()   override {};
-
 	private:
 		VkDevice    m_Device    = VK_NULL_HANDLE;
 		VkSemaphore m_Semaphore = VK_NULL_HANDLE;
