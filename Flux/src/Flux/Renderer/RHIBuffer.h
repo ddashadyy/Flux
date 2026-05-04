@@ -1,58 +1,54 @@
 #pragma once
 
-
 #include "Flux/Core/Base.h"
+#include "RHICommon.h" 
 
 namespace Flux {
 
-	enum class IndexType : uint8_t
-	{
-		None   = 0,
-		Uint16 = 1,
-		Uint32 = 2
-	};
+    enum class BufferUsage : uint8_t
+    {
+        Vertex   = BIT(0),
+        Index    = BIT(1),
+        Uniform  = BIT(2),
+        Storage  = BIT(3),
+        Staging  = BIT(4),
+        Indirect = BIT(5), // для indirect draw
+    };
+    FL_ENABLE_BITWISE_OPERATORS(BufferUsage);
 
-	enum class BufferUsage : uint8_t
-	{
-		Vertex  = BIT(0),
-		Index   = BIT(1),
-		Uniform = BIT(2),
-		Storage = BIT(3),
-		Staging = BIT(4)
-	};
-	ENABLE_BITWISE_OPERATORS(BufferUsage);
-
-	struct BufferSpec
-	{
-		uint64_t      Size       = 0;
-		BufferUsage   Usage      = BufferUsage::Vertex;
-		bool          CpuVisible = false;
-	};
+    struct BufferSpec
+    {
+        uint64_t    Size       = 0;
+        BufferUsage Usage      = BufferUsage::Vertex;
+        bool        CpuVisible = false;
+        const char* DebugName  = nullptr; 
+    };
 
 
-	class RHIBuffer
-	{
-	public:
-		virtual ~RHIBuffer() = default;
+    class RHIBuffer
+    {
+    public:
+        virtual ~RHIBuffer() = default;
 
-		template<typename T>
-		T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
+        template<typename T>
+        T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
 
-		virtual void* Map()   = 0;
-		virtual void  Unmap() = 0;
+        virtual void* Map()   = 0;
+        virtual void  Unmap() = 0;
 
-		virtual uint64_t    GetSize()  const = 0;
-		virtual BufferUsage GetUsage() const = 0;
+        virtual const BufferSpec& GetSpec()  const = 0; 
+        uint64_t    GetSize()  const { return GetSpec().Size; }
+        BufferUsage GetUsage() const { return GetSpec().Usage; }
 
-		void SetData(const void* data, uint64_t size)
-		{
-			void* ptr = Map();
-			memcpy(ptr, data, size);
-			Unmap();
-		}
+        void SetData(const void* data, uint64_t size, uint64_t offset = 0)
+        {
+            uint8_t* ptr = static_cast<uint8_t*>(Map());
+            memcpy(ptr + offset, data, size);
+            Unmap();
+        }
 
-	protected:
-		virtual void* GetHandleImpl() const = 0;
-	};
+    protected:
+        virtual void* GetHandleImpl() const = 0;
+    };
 
-}
+} // namespace Flux
