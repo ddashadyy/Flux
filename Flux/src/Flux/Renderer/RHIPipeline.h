@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include "Flux/Core/Base.h"
 
 #include "RHIShader.h"
@@ -9,86 +8,162 @@
 #include "RHIRenderPass.h"
 #include "BufferLayout.h"
 
-
 namespace Flux {
 
-	
+    // -------------------------------------------------------------------------
+    // Primitive topology
+    // -------------------------------------------------------------------------
 
-	
-	struct BlendState
-	{
-		bool Enable = false;
-		// расширить позже
-	};
+    enum class PrimitiveTopology : uint8_t
+    {
+        TriangleList  = 0,
+        TriangleStrip = 1,
+        LineList      = 2,
+        LineStrip     = 3,
+        PointList     = 4,
+    };
 
-	struct DepthStencilState 
-	{
-		bool DepthTest = true;
-		bool DepthWrite = true;
-	};
+    // -------------------------------------------------------------------------
+    // Pipeline type
+    // -------------------------------------------------------------------------
 
-	enum class PrimitiveTopology : uint8_t 
-	{
-		TriangleList = 0,
-		TriangleStrip = 1,
-		LineList = 2,
-		PointList = 3,
-	};
+    enum class PipelineType : uint8_t
+    {
+        Graphics = 0,
+        Compute  = 1,
+    };
 
-	enum class PipelineType : uint8_t
-	{
-		Graphics = 0,
-		Compute = 1,
-	};
+    // -------------------------------------------------------------------------
+    // Rasterizer state
+    // -------------------------------------------------------------------------
 
-	struct PipelineLayoutDesc
-	{
-		ShaderStage Stage = ShaderStage::Vertex | ShaderStage::Fragment;
-		uint32_t Offset   = 0;
-		uint32_t Size     = 0;
-	};
+    struct RasterizerState
+    {
+        CullMode  Cull       = CullMode::Back;
+        FillMode  Fill       = FillMode::Solid;
+        FrontFace Front      = FrontFace::CounterClockwise;
 
-	struct PipelineDesc
-	{
-		const RHIShader*     VertexShader = nullptr;
-		const RHIShader*     FragmentShader = nullptr;
-		const RHIRenderPass* RenderPass = nullptr;
+        bool      DepthClamp = false;       // нужно для shadow map (не обрезать тени за far plane)
+        float     DepthBiasConstant = 0.0f; // polygon offset — тоже для shadow map
+        float     DepthBiasSlope    = 0.0f;
+    };
 
-		BufferLayout         VertexLayout;
-		PipelineLayoutDesc   pipelineLayoutDesc;
-						     
-		BlendState           Blend;
-						     
-		SampleCount          Samples = Flux::SampleCount::x1;
-						     
-		DepthStencilState    DepthStencil;
-		PrimitiveTopology    Topology = PrimitiveTopology::TriangleList;
-		PipelineType         Type = PipelineType::Graphics;
-		bool                 DepthOnly = false; // для shadow pass
+    // -------------------------------------------------------------------------
+    // Blend state (расширен)
+    // -------------------------------------------------------------------------
 
-		std::vector<const RHIDescriptorSetLayout*>   DescriptorSetLayouts;
-	};
+    struct RenderTargetBlendState
+    {
+        bool        Enable          = false;
 
+        BlendFactor SrcColorFactor  = BlendFactor::SrcAlpha;
+        BlendFactor DstColorFactor  = BlendFactor::OneMinusSrcAlpha;
+        BlendOp     ColorOp         = BlendOp::Add;
 
-	class RHIPipeline 
-	{
-	public:
-		virtual ~RHIPipeline() = default;
+        BlendFactor SrcAlphaFactor  = BlendFactor::One;
+        BlendFactor DstAlphaFactor  = BlendFactor::Zero;
+        BlendOp     AlphaOp         = BlendOp::Add;
+    };
 
-		template<typename T>
-		T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
+    // Предустановки для удобства
+    namespace BlendPreset {
+        inline RenderTargetBlendState Opaque()      { return {}; }
+        inline RenderTargetBlendState AlphaBlend()  { RenderTargetBlendState s; s.Enable = true; return s; }
+        inline RenderTargetBlendState Additive()    
+        {
+            RenderTargetBlendState s;
+            s.Enable         = true;
+            s.SrcColorFactor = BlendFactor::One;
+            s.DstColorFactor = BlendFactor::One;
+            s.SrcAlphaFactor = BlendFactor::One;
+            s.DstAlphaFactor = BlendFactor::One;
+            return s;
+        }
+    }
 
-		template<typename T>
-		T GetLayout() const { return reinterpret_cast<T>(GetLayoutImpl()); }
+    // -------------------------------------------------------------------------
+    // Depth / stencil state 
+    // -------------------------------------------------------------------------
 
-		virtual PipelineType GetType()    const = 0;
-		virtual bool         IsValid()    const = 0;
+    struct DepthStencilState
+    {
+        bool      DepthTest      = true;
+        bool      DepthWrite     = true;
+        CompareOp DepthCompare   = CompareOp::Less;
 
-		virtual const PipelineLayoutDesc& GetLayoutDesc() const = 0;
+        // Stencil — пока базово
+        bool      StencilTest      = false;
+        uint8_t   StencilReadMask  = 0xFF;
+        uint8_t   StencilWriteMask = 0xFF;
+    };
 
-	protected:
-		virtual void* GetHandleImpl() const = 0;
-		virtual void* GetLayoutImpl() const = 0;
-	};
+    // -------------------------------------------------------------------------
+    // Push constants layout
+    // -------------------------------------------------------------------------
 
-}
+    struct PushConstantRange
+    {
+        ShaderStage Stage  = ShaderStage::Vertex | ShaderStage::Fragment;
+        uint32_t    Offset = 0;
+        uint32_t    Size   = 0;
+    };
+
+    // -------------------------------------------------------------------------
+    // Pipeline descriptor
+    // -------------------------------------------------------------------------
+
+    struct PipelineDesc
+    {
+        // Shaders
+        const RHIShader* VertexShader   = nullptr;
+        const RHIShader* FragmentShader = nullptr;
+        const RHIShader* ComputeShader  = nullptr; // для PipelineType::Compute
+
+        const RHIRenderPass* RenderPass = nullptr;  // nullptr для compute
+
+        // Vertex input
+        BufferLayout VertexLayout;
+
+        // States
+        RasterizerState          Rasterizer;
+        RenderTargetBlendState   Blend;             // один на все RT (расширить до массива если нужно)
+        DepthStencilState        DepthStencil;
+        PrimitiveTopology        Topology = PrimitiveTopology::TriangleList;
+        SampleCount              Samples  = SampleCount::x1;
+
+        // Layout
+        PushConstantRange        PushConstants;
+        std::vector<const RHIDescriptorSetLayout*> DescriptorSetLayouts;
+
+        PipelineType Type      = PipelineType::Graphics;
+        bool         DepthOnly = false; // для shadow pass — отключает color write
+        
+        const char*  DebugName = nullptr;
+    };
+
+    // -------------------------------------------------------------------------
+    // Pipeline
+    // -------------------------------------------------------------------------
+
+    class RHIPipeline
+    {
+    public:
+        virtual ~RHIPipeline() = default;
+
+        template<typename T>
+        T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
+
+        template<typename T>
+        T GetLayout() const { return reinterpret_cast<T>(GetLayoutImpl()); }
+
+        virtual PipelineType GetType()  const = 0;
+        virtual bool         IsValid()  const = 0;
+
+        virtual const PipelineDesc& GetDesc() const = 0;  // вместо GetLayoutDesc — отдаём весь desc
+
+    protected:
+        virtual void* GetHandleImpl() const = 0;
+        virtual void* GetLayoutImpl() const = 0;
+    };
+
+} // namespace Flux
