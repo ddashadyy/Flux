@@ -1,7 +1,7 @@
 #include "flpch.h"
 #include "VulkanFramebuffer.h"
 #include "VulkanRenderPass.h"
-#include "VulkanSwapchainTexture.h"
+#include "VulkanTexture.h"
 
 namespace Flux {
 
