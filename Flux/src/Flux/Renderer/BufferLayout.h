@@ -6,8 +6,7 @@
 
 namespace Flux {
 
-
-	enum class ShaderDataType : uint8_t
+	enum class ShaderDataType : uint16_t
 	{
 		None = 0,
 		Float, Float2, Float3, Float4,
@@ -101,4 +100,4 @@ namespace Flux {
 		std::vector<BufferElement> m_Elements;
 		uint32_t m_Stride = 0;
 	};
-}
+} // namespace Flux
