@@ -6,7 +6,7 @@
 namespace Flux {
 
     // Барьер
-    class RHIFence 
+    class RHIFence
     {
     public:
         virtual ~RHIFence() = default;
