@@ -26,28 +26,40 @@ namespace Flux {
         }
     };
 
-    struct MeshData
+    using Texture = RHITexture;
+
+    struct Material
     {
-        std::vector<Vertex> Vertices;
-        std::vector<uint32_t> Indices;
-		IndexType Type = IndexType::Uint32;
-	};
+        Ref<Texture> Albedo;
+        Ref<Texture> Normal;
+        Ref<Texture> RoughnessMetallic;
 
-    class Mesh
+        glm::vec4 Color = glm::vec4(1.0f);
+        // -1 == брать из текстуры
+        float     RoughnessOverride = -1.0f;
+        float     MetallicOverride = -1.0f;
+
+        Scope<RHIDescriptorSet> DescriptorSet;
+    };
+
+    struct SubMesh
     {
-    public:
-        Mesh(RHIDevice& device, const MeshData& meshData);
+        Scope<RHIBuffer> IndexBuffer;
+        uint32_t         IndexCount = 0;
+        IndexType        Type = IndexType::Uint32;
+        Material         Mat;
 
-		void Draw(RHICommandList& commandList) const;
+        void Draw(RHICommandList& cmdList) const
+        {
+            cmdList.BindIndexBuffer(IndexBuffer.get(), Type);
+            cmdList.DrawIndexed(IndexCount);
+        }
+    };
 
-		uint32_t GetIndexCount() const { return m_IndexCount; }
-
-    private:
-		Scope<RHIBuffer> m_VertexBuffer;
-		Scope<RHIBuffer> m_IndexBuffer;
-
-        uint32_t m_IndexCount = 0;
-		IndexType m_IndexType = IndexType::Uint32;
+    struct Model
+    {
+        Scope<RHIBuffer>     VertexBuffer;
+        std::vector<SubMesh> Meshes;
     };
 
 }
