@@ -31,6 +31,10 @@
 #include "Flux/Renderer/RendererBackend.h"
 // ------------------------
 
+// ---Editor----------------
+#include "Flux/Editor/EditorLayer.h"
+// -------------------------
+
 // ---Entry Point-----------
 #include "Flux/Core/EntryPoint.h"
 // -------------------------
