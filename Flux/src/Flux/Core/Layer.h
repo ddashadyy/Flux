@@ -15,7 +15,7 @@ namespace Flux {
 
         virtual void OnAttach() {}
         virtual void OnDetach() {}
-        virtual void OnUpdate(RHICommandList* cmdList) {}
+        virtual void OnUpdate(RHICommandList* cmdList, uint32_t currentImageIndex) {}
         virtual void OnImGuiRender() {}
         virtual void OnEvent(Event& event) {}
         virtual void OnResize(uint32_t width, uint32_t height) {}
