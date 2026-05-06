@@ -36,19 +36,22 @@ namespace Flux {
         auto& device = app.GetDevice();
         auto& window = app.GetWindow();
 
-        // Камера
+        // Камера — позиция и ротация из старого ExampleLayer
         float aspect = (float)window.GetWidth() / (float)window.GetHeight();
         m_Camera = PerspectiveCamera(45.0f, aspect, 0.1f, 1000.0f);
-        m_Camera.SetPosition({ 0.0f, 1.0f, 5.0f });
-
-        // Directional light по умолчанию
-        m_Light.Direction = glm::vec4(0.3f, -1.0f, -0.5f, 0.0f);
-        m_Light.Color = glm::vec4(1.0f, 1.0f, 1.0f, 3.0f); // w = intensity
+        m_Camera.SetPosition({ -8.29f, 2.35f, -8.96f });
+        m_Camera.SetRotation({ -12.5f, -307.0f, 0.0f });
 
         // Рендерер
         m_Renderer = CreateScope<Renderer>(device);
 
-        // Дефолтный самплер (linear, clamp) — для будущих ImGui texture views
+        // 4 point light'а над фонарными столбами улицы
+        m_Renderer->AddPointLight({ glm::vec4(0.02f, 2.82f,  5.40f, 0.0f), glm::vec4(1.0f, 0.85f, 0.5f, 300.0f) });
+        m_Renderer->AddPointLight({ glm::vec4(0.11f, 2.82f,  2.13f, 0.0f), glm::vec4(1.0f, 0.85f, 0.5f, 300.0f) });
+        m_Renderer->AddPointLight({ glm::vec4(0.02f, 2.82f, -2.04f, 0.0f), glm::vec4(1.0f, 0.85f, 0.5f, 300.0f) });
+        m_Renderer->AddPointLight({ glm::vec4(-0.02f, 2.82f, -5.45f, 0.0f), glm::vec4(1.0f, 0.85f, 0.5f, 300.0f) });
+
+        // Дефолтный самплер
         SamplerSpec samplerSpec{};
         samplerSpec.MagFilter = FilterMode::Linear;
         samplerSpec.MinFilter = FilterMode::Linear;
@@ -88,7 +91,7 @@ namespace Flux {
     //  OnUpdate
     // =========================================================================
 
-    void EditorLayer::OnUpdate(RHICommandList* cmdList)
+    void EditorLayer::OnUpdate(RHICommandList* cmdList, uint32_t imageIndex)
     {
         auto& app = Application::Get();
         auto& window = app.GetWindow();
@@ -109,25 +112,21 @@ namespace Flux {
 
         ProcessKeyboard(dt);
 
-        // Обновляем aspect ratio
         float aspect = (float)window.GetWidth() / (float)window.GetHeight();
         m_Camera.SetAspectRatio(aspect);
 
-        uint32_t imageIndex = swapchain->GetCurrentImageIndex();
-
-        // BeginRenderPass теперь принимает clearDepth и clearStencil явно
         cmdList->BeginRenderPass(
             m_RenderPass.get(),
             m_Framebuffers[imageIndex].get(),
-            { 0.05f, 0.05f, 0.05f, 1.0f }, // clearColor
-            1.0f,                            // clearDepth
-            0                                // clearStencil
+            { 0.05f, 0.05f, 0.05f, 1.0f },
+            1.0f,
+            0
         );
 
         cmdList->SetViewport(0.0f, 0.0f, (float)window.GetWidth(), (float)window.GetHeight());
         cmdList->SetScissor(0, 0, window.GetWidth(), window.GetHeight());
 
-        m_Renderer->BeginScene(*cmdList, *m_Pipeline, m_Camera, m_Light);
+        m_Renderer->BeginScene(*cmdList, *m_Pipeline, m_Camera);
 
         for (auto& entity : m_Scene->GetEntities())
             m_Renderer->Submit(entity);
@@ -231,16 +230,13 @@ namespace Flux {
 
     void EditorLayer::RecreateSwapchainResources(uint32_t width, uint32_t height)
     {
-        // Сначала освобождаем зависимые от swapchain ресурсы
         m_Framebuffers.clear();
         m_DepthTexture.reset();
         m_MsaaColorTexture.reset();
 
-        // Пересоздаём
         CreateDepthAndMsaa(width, height);
         CreateFramebuffers(width, height);
 
-        // Aspect камеры
         m_Camera.SetAspectRatio((float)width / (float)height);
     }
 
@@ -250,26 +246,22 @@ namespace Flux {
         auto* swapchain = device.GetSwapchain();
         const bool msaa = (MSAA_SAMPLES != SampleCount::x1);
 
-        // Depth
         TextureSpec depthSpec{};
         depthSpec.Width = width;
         depthSpec.Height = height;
         depthSpec.MipLevels = 1;
         depthSpec.ImageFormat = Format::D32_SFLOAT;
-        depthSpec.Usage = TextureUsage::DepthStencil; // битмаска — только depth attachment
+        depthSpec.Usage = TextureUsage::DepthStencil;
         depthSpec.Samples = MSAA_SAMPLES;
         depthSpec.DebugName = "DepthBuffer";
         m_DepthTexture = device.CreateTexture(depthSpec);
 
-        // MSAA color resolve buffer
         if (msaa)
         {
             TextureSpec msaaSpec{};
             msaaSpec.Width = width;
             msaaSpec.Height = height;
             msaaSpec.ImageFormat = swapchain->GetFormat();
-            // RenderTarget — рендерим в него, потом resolve в swapchain
-            // Transient убран из нового RHI — используем RenderTarget
             msaaSpec.Usage = TextureUsage::RenderTarget;
             msaaSpec.MipLevels = 1;
             msaaSpec.Samples = MSAA_SAMPLES;
@@ -296,20 +288,19 @@ namespace Flux {
         desc.DepthStoreOp = AttachmentStoreOp::DontCare;
 
         desc.ColorInitialLayout = ImageLayout::Undefined;
+        desc.ColorFinalLayout = ImageLayout::ColorAttachment;
         desc.DepthInitialLayout = ImageLayout::Undefined;
         desc.DepthFinalLayout = ImageLayout::DepthStencilAttachment;
 
         if (msaa)
         {
-            desc.ColorFinalLayout   = ImageLayout::ColorAttachment; // MSAA буфер остаётся в ColorAttachment
-            desc.HasResolve         = true;
+            desc.HasResolve = true;
             desc.ResolveInitialLayout = ImageLayout::Undefined;
-            desc.ResolveFinalLayout   = ImageLayout::ColorAttachment; // resolve → ColorAttachment, не Present
-                                                                       // ImGui дочитает и сделает Present
+            desc.ResolveFinalLayout = ImageLayout::ColorAttachment;
         }
         else
         {
-            desc.ColorFinalLayout = ImageLayout::ColorAttachment; // не Present — ImGui ещё рендерит поверх
+            desc.ColorFinalLayout = ImageLayout::ColorAttachment;
         }
 
         m_RenderPass = device.CreateRenderPass(desc);
@@ -332,14 +323,12 @@ namespace Flux {
 
             if (msaa)
             {
-                // MSAA: color = msaa buffer, resolve = swapchain image
                 spec.ColorTargets = { m_MsaaColorTexture.get() };
                 spec.DepthTarget = m_DepthTexture.get();
                 spec.ResolveTarget = swapchain->GetColorTarget(i);
             }
             else
             {
-                // Без MSAA: color = swapchain image напрямую
                 spec.ColorTargets = { swapchain->GetColorTarget(i) };
                 spec.DepthTarget = m_DepthTexture.get();
             }
@@ -364,6 +353,9 @@ namespace Flux {
             { ShaderDataType::Float3 }, // Tangent
         };
 
+        FL_CORE_WARN("Size of Vertex in C++: {}", sizeof(Vertex));
+        FL_CORE_WARN("Size of Vertex in Pipeline: {}", vertexLayout.GetStride());
+
         PipelineDesc desc{};
         desc.VertexShader = m_VertShader.get();
         desc.FragmentShader = m_FragShader.get();
@@ -372,30 +364,26 @@ namespace Flux {
         desc.Topology = PrimitiveTopology::TriangleList;
         desc.Samples = MSAA_SAMPLES;
 
-        // PushConstantRange — новое имя, вместо PipelineLayoutDesc
         desc.PushConstants.Stage = ShaderStage::Vertex | ShaderStage::Fragment;
         desc.PushConstants.Offset = 0;
         desc.PushConstants.Size = sizeof(PushConstantData);
 
-        // Descriptor set layouts из рендерера
+        FL_CORE_WARN("PushConstantData size: {} bytes", sizeof(PushConstantData));
+
         desc.DescriptorSetLayouts = {
             m_Renderer->GetGlobalDescriptorSetLayout(),
             m_Renderer->GetTextureDescriptorSetLayout()
         };
 
-        // DepthStencil state
         desc.DepthStencil.DepthTest = true;
         desc.DepthStencil.DepthWrite = true;
-        desc.DepthStencil.DepthCompare = CompareOp::Less; // явно, не хардкод в Vulkan
+        desc.DepthStencil.DepthCompare = CompareOp::Less;
 
-        // Rasterizer state — явно, чтобы было понятно
-        desc.Rasterizer.Cull = CullMode::Back;
+        desc.Rasterizer.Cull = CullMode::None;
         desc.Rasterizer.Fill = FillMode::Solid;
-        desc.Rasterizer.Front = FrontFace::CounterClockwise;
+        desc.Rasterizer.Front = FrontFace::Clockwise;
 
-        // Blend — непрозрачная геометрия
         desc.Blend = BlendPreset::Opaque();
-
         desc.DebugName = "ScenePipeline";
 
         m_Pipeline = device.CreatePipeline(desc);
@@ -406,20 +394,35 @@ namespace Flux {
         auto& assetManager = Application::Get().GetAssetManager();
         auto* texLayout = m_Renderer->GetTextureDescriptorSetLayout();
 
+        // --- Батмобиль ---
         auto batmobile = assetManager.LoadModel(
             "C:\\dev\\Flux\\SandBox\\assets\\models\\batmobile\\arkham_knight_batmobile_advanced_rig.obj",
             texLayout
         );
+        if (batmobile)
+        {
+            for (auto& subMesh : batmobile->Meshes)
+            {
+                subMesh.Mat.Color = { 0.8f, 0.8f, 0.8f, 1.0f };
+                subMesh.Mat.RoughnessOverride = 0.2f;
+                subMesh.Mat.MetallicOverride = 0.38f;
+            }
+        }
         auto& batmobileEntity = m_Scene->AddEntity(batmobile, "Batmobile");
         batmobileEntity.GetTransform().Position = { -6.0f, -0.5f, -4.5f };
         batmobileEntity.GetTransform().Scale = { 0.25f, 0.25f, 0.25f };
 
+        // --- Улица ---
         auto street = assetManager.LoadModel(
             "C:\\dev\\Flux\\SandBox\\assets\\models\\street\\dark_street_scene.obj",
             texLayout
         );
-        auto& streetEntity = m_Scene->AddEntity(street, "Street");
-        (void)streetEntity;
+        if (street)
+        {
+            for (auto& subMesh : street->Meshes)
+                subMesh.Mat.Color = { 0.0f, 0.0f, 0.0f, 1.0f };
+        }
+        m_Scene->AddEntity(street, "Street");
     }
 
     // =========================================================================

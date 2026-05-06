@@ -28,7 +28,7 @@ namespace Flux {
 
         void OnAttach() override;
         void OnDetach() override;
-        void OnUpdate(RHICommandList* cmdList) override;
+        void OnUpdate(RHICommandList* cmdList, uint32_t imageIndex) override;
         void OnImGuiRender() override;
         void OnEvent(Event& event) override;
         void OnResize(uint32_t width, uint32_t height) override;
@@ -63,7 +63,6 @@ namespace Flux {
 
         // Камера и свет
         PerspectiveCamera m_Camera;
-        DirectionalLight  m_Light;
 
         // Shaders & pipeline
         Scope<RHIShader>   m_VertShader;
