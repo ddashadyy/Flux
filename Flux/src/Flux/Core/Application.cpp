@@ -83,19 +83,25 @@ namespace Flux {
     {
         auto* swapchain = m_Device->GetSwapchain();
 
-        FL_CORE_TRACE("RenderFrame: currentFrame={}", m_CurrentFrame);
-
         m_FrameSync->GetFrameFence(m_CurrentFrame).Wait();
         m_FrameSync->GetFrameFence(m_CurrentFrame).Reset();
 
         uint32_t imageIndex = swapchain->AcquireNextImage(&m_FrameSync->GetImageAvailable(m_CurrentFrame));
-        auto* cmdList = m_Device->GetCommandList(m_CurrentFrame);
+
+        if (imageIndex != m_CurrentFrame)
+        {
+            m_FrameSync->GetFrameFence(imageIndex).Wait();
+            m_FrameSync->GetFrameFence(imageIndex).Reset();
+        }
+
+        auto* cmdList = m_Device->GetCommandList(imageIndex);
 
         cmdList->Begin();
 
         for (Layer* layer : m_LayerStack)
-            layer->OnUpdate(cmdList);
+            layer->OnUpdate(cmdList, imageIndex);
 
+        
         cmdList->BeginRenderPass(
             &m_ImGuiLayer->GetRenderPass(),
             &m_ImGuiLayer->GetFramebuffer(imageIndex)
@@ -106,14 +112,15 @@ namespace Flux {
         m_ImGuiLayer->Begin();
         for (Layer* layer : m_LayerStack)
             layer->OnImGuiRender();
-        m_ImGuiLayer->End(m_CurrentFrame);
+        m_ImGuiLayer->End(imageIndex); 
         cmdList->EndRenderPass();
+
 
         cmdList->End();
 
         SubmitDesc submitDesc{};
         submitDesc.CommandList = cmdList;
-        submitDesc.SignalFence = &m_FrameSync->GetFrameFence(m_CurrentFrame);
+        submitDesc.SignalFence = &m_FrameSync->GetFrameFence(imageIndex); 
         submitDesc.WaitSemaphore = &m_FrameSync->GetImageAvailable(m_CurrentFrame);
         submitDesc.SignalSemaphore = &m_FrameSync->GetRenderFinished(m_CurrentFrame);
         m_Device->Submit(submitDesc);
