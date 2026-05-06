@@ -96,8 +96,8 @@ namespace Flux {
                 resolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
                 resolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
                 resolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-                resolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-                resolve.finalLayout = GetImageLayout(m_Desc.ColorFinalLayout);
+                resolve.initialLayout = GetImageLayout(m_Desc.ResolveInitialLayout);
+                resolve.finalLayout = GetImageLayout(m_Desc.ResolveFinalLayout);
                 attachments.emplace_back(resolve);
             }
         }
