@@ -97,6 +97,11 @@ void main() {
 
     vec3 Lo = vec3(0.0);
 
+    if (ubo.lightCount <= 0 || ubo.lightCount > 8) {
+        outColor = vec4(1.0, 0.0, 0.0, 1.0); // красный = проблема с lightCount
+        return;
+    }
+
     for (int i = 0; i < ubo.lightCount; i++) {
         vec3  lightPos    = ubo.lights[i].position.xyz;
         vec3  lightColor  = ubo.lights[i].color.rgb;
@@ -116,4 +121,7 @@ void main() {
     color = pow(color, vec3(1.0 / 2.2));
 
     outColor = vec4(color, 1.0);
+    // нормали 
+    // outColor = vec4(normalize(fragNormal) * 0.5 + 0.5, 1.0);
+    // outColor = vec4(abs(ubo.cameraPos) * 0.01, 1.0);
 }

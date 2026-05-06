@@ -1,14 +1,24 @@
 #version 450
 
+struct PointLight {
+    vec4 position;
+    vec4 color;
+};
+
 layout(std140, set = 0, binding = 0) uniform GlobalUBO {
-    mat4 view;
-    mat4 projection;
-    vec3 cameraPos;
+    mat4       view;
+    mat4       projection;
+    vec3       cameraPos;
+    int        lightCount;
+    PointLight lights[8];
 } ubo;
 
 layout(push_constant) uniform PushConstants {
-    mat4 model;
-    vec4 color;
+    mat4  model;
+    vec4  color;
+    float roughnessOverride;
+    float metallicOverride;
+    float pad[2];
 } pc;
 
 layout(location = 0) in vec3 inPosition;
@@ -23,11 +33,11 @@ layout(location = 3) out vec3 fragTangent;
 
 void main() {
     vec4 worldPos = pc.model * vec4(inPosition, 1.0);
-    gl_Position  = ubo.projection * ubo.view * worldPos;
+    gl_Position = ubo.projection * ubo.view * worldPos;
 
     mat3 normalMatrix = mat3(transpose(inverse(pc.model)));
-    fragWorldPos  = worldPos.xyz;
-    fragNormal    = normalMatrix * inNormal;
-    fragTexCoord  = inTexCoord;
-    fragTangent   = normalMatrix * inTangent;
+    fragWorldPos = worldPos.xyz;
+    fragNormal   = normalMatrix * inNormal;
+    fragTexCoord = inTexCoord;
+    fragTangent  = normalMatrix * inTangent;
 }
