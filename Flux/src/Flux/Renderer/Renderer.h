@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <vector>
 
 #include "Flux/Renderer/RHIDevice.h"
 #include "Flux/Renderer/RHIBuffer.h"
@@ -11,18 +12,20 @@
 
 namespace Flux {
 
-    struct DirectionalLight
+    struct PointLight
     {
-		glm::vec4 Direction = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f); // w не используется
-        glm::vec4 Color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);      // w = intensity
+        glm::vec4 Position = glm::vec4(0.0f);  // w не используется
+        glm::vec4 Color    = glm::vec4(1.0f);  // w = intensity
     };
 
+    
     struct GlobalUBO
     {
-        glm::mat4        View;
-        glm::mat4        Projection;
-        glm::vec4        CameraPos;
-        DirectionalLight Light;
+        glm::mat4  View;
+        glm::mat4  Projection;
+        glm::vec3  CameraPos;
+        int        LightCount = 0;
+        PointLight Lights[8];
     };
 
     struct PushConstantData
@@ -44,8 +47,10 @@ namespace Flux {
 
         void BeginScene(RHICommandList& cmd,
             RHIPipeline& pipeline,
-            const PerspectiveCamera& camera,
-            const DirectionalLight& light = {});
+            const PerspectiveCamera& camera);
+
+        void AddPointLight(const PointLight& light);
+        void ClearLights();
 
         void Submit(const Entity& entity);
         void EndScene();
@@ -63,6 +68,8 @@ namespace Flux {
         Scope<RHIDescriptorSetLayout> m_GlobalDescriptorSetLayout;
         Scope<RHIDescriptorSet>       m_GlobalDescriptorSet;
         Scope<RHIDescriptorSetLayout> m_TextureDescriptorSetLayout;
+
+        std::vector<PointLight> m_PointLights;
     };
 
 }

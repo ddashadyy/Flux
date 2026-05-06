@@ -45,8 +45,7 @@ namespace Flux {
 
     void Renderer::BeginScene(RHICommandList& cmd,
         RHIPipeline& pipeline,
-        const PerspectiveCamera& camera,
-        const DirectionalLight& light)
+        const PerspectiveCamera& camera)
     {
         m_CommandList = &cmd;
         m_Pipeline = &pipeline;
@@ -55,16 +54,32 @@ namespace Flux {
         float aspect = (float)window.GetWidth() / (float)window.GetHeight();
 
         GlobalUBO ubo{};
-        ubo.View = camera.GetViewMatrix();
+        ubo.View       = camera.GetViewMatrix();
         ubo.Projection = glm::perspective(glm::radians(camera.GetFOV()), aspect, 0.1f, 1000.0f);
         ubo.Projection[1][1] *= -1; // Vulkan Y flip
-        ubo.CameraPos = glm::vec4(camera.GetPosition(), 1.0f);
-        ubo.Light = light;
+        ubo.CameraPos  = camera.GetPosition();
+        ubo.LightCount = (int)m_PointLights.size();
+
+        for (int i = 0; i < ubo.LightCount; i++)
+            ubo.Lights[i] = m_PointLights[i];
+
+        FL_CORE_WARN("CameraPos in UBO: {}, {}, {}", ubo.CameraPos.x, ubo.CameraPos.y, ubo.CameraPos.z);
 
         m_GlobalUBO->SetData(&ubo, sizeof(GlobalUBO));
 
-		m_CommandList->SetPipeline(m_Pipeline);
+        m_CommandList->SetPipeline(m_Pipeline);
         m_CommandList->BindDescriptorSet(0, m_GlobalDescriptorSet.get(), m_Pipeline);
+    }
+
+    void Renderer::AddPointLight(const PointLight& light)
+    {
+        if (m_PointLights.size() < 8)
+            m_PointLights.push_back(light);
+    }
+
+    void Renderer::ClearLights()
+    {
+        m_PointLights.clear();
     }
 
     void Renderer::Submit(const Entity& entity)
@@ -72,17 +87,17 @@ namespace Flux {
         auto model = entity.GetModel();
         if (!model) return;
 
-        m_CommandList->BindVertexBuffer(model->VertexBuffer.get()); 
+        m_CommandList->BindVertexBuffer(model->VertexBuffer.get());
 
         for (const auto& subMesh : model->Meshes)
         {
             m_CommandList->BindDescriptorSet(1, subMesh.Mat.DescriptorSet.get(), m_Pipeline);
 
             PushConstantData push{};
-            push.Model = entity.GetTransform().GetMatrix();
-            push.Color = subMesh.Mat.Color;
+            push.Model             = entity.GetTransform().GetMatrix();
+            push.Color             = subMesh.Mat.Color;
             push.RoughnessOverride = subMesh.Mat.RoughnessOverride;
-            push.MetallicOverride = subMesh.Mat.MetallicOverride;
+            push.MetallicOverride  = subMesh.Mat.MetallicOverride;
 
             m_CommandList->PushConstants(
                 m_Pipeline,
@@ -99,7 +114,7 @@ namespace Flux {
     void Renderer::EndScene()
     {
         m_CommandList = nullptr;
-        m_Pipeline = nullptr;
+        m_Pipeline    = nullptr;
     }
 
 }
