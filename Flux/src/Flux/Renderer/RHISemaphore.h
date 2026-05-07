@@ -10,11 +10,7 @@ namespace Flux {
     public:
         virtual ~RHISemaphore() = default;
 
-        template<typename T>
-        T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
-
-    protected:
-        virtual void* GetHandleImpl() const = 0;
+        virtual void* GetHandle() const = 0;
     };
 
 } // namespace Flux

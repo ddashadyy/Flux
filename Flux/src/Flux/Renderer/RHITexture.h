@@ -54,8 +54,7 @@ namespace Flux {
     public:
         virtual ~RHITexture() = default;
 
-        template<typename T>
-        T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }  
+        virtual void* GetHandle() const = 0;
 
         virtual const TextureSpec& GetSpec()     const = 0;
         uint32_t GetWidth()     const { return GetSpec().Width; }
@@ -67,9 +66,6 @@ namespace Flux {
 
         // Загрузить данные с CPU (только для CPU-visible / staging текстур)
         virtual void SetData(const void* data, uint32_t size) = 0;
-
-    protected:
-        virtual void* GetHandleImpl() const = 0;
     };
 
     // -------------------------------------------------------------------------
@@ -106,13 +102,9 @@ namespace Flux {
     public:
         virtual ~RHISampler() = default;
 
-        template<typename T>
-        T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
+        virtual void* GetHandle() const = 0;
 
         virtual const SamplerSpec& GetSpec() const = 0;
-
-    protected:
-        virtual void* GetHandleImpl() const = 0;
     };
 
 } // namespace Flux

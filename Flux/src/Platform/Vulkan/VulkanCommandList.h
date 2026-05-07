@@ -14,6 +14,8 @@ namespace Flux {
             VkQueue graphicsQueue, VulkanSwapchain* swapchain);
         ~VulkanCommandList();
 
+		void* GetHandle() const override { return m_CommandBuffer; }
+
         void Begin() override;
         void End()   override;
 
@@ -84,8 +86,6 @@ namespace Flux {
         VkCommandBuffer  m_CommandBuffer = VK_NULL_HANDLE;
         VkPipelineLayout m_CurrentPipelineLayout = VK_NULL_HANDLE;
 
-    protected:
-        void* GetHandleImpl() const override { return m_CommandBuffer; }
     };
 
 } // namespace Flux

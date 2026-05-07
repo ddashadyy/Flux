@@ -20,14 +20,10 @@ namespace Flux {
     public:
         virtual ~RHIShader() = default;
 
-        template<typename T>
-        T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
+        virtual void* GetHandle() const = 0;
 
         virtual ShaderStage        GetStage()      const = 0;
         virtual const std::string& GetEntryPoint() const = 0;
-
-    protected:
-        virtual void* GetHandleImpl() const = 0;
     };
 
 } // namespace Flux

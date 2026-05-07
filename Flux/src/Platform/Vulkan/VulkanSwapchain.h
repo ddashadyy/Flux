@@ -16,6 +16,8 @@ namespace Flux {
             uint32_t width, uint32_t height);
         ~VulkanSwapchain();
 
+		void* GetHandle() const override { return m_Swapchain; }
+
         uint32_t AcquireNextImage(RHISemaphore* semaphore)              override;
         void     Present(RHISemaphore* semaphore, uint32_t imageIndex)  override;
         void     Resize(uint32_t w, uint32_t h)                         override;

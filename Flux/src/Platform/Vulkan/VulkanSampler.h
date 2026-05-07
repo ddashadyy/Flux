@@ -11,15 +11,14 @@ namespace Flux {
         VulkanSampler(VkDevice device, const SamplerSpec& spec);
         ~VulkanSampler();
 
+		void* GetHandle() const override { return m_Sampler; }
+
         const SamplerSpec& GetSpec() const override { return m_Spec; }
 
     private:
         VkDevice     m_Device = VK_NULL_HANDLE;
         VkSampler    m_Sampler = VK_NULL_HANDLE;
         SamplerSpec  m_Spec{};
-
-    protected:
-        void* GetHandleImpl() const override { return m_Sampler; }
     };
 
 } // namespace Flux

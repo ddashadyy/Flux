@@ -13,6 +13,8 @@ namespace Flux {
         VulkanBuffer(VmaAllocator allocator, const BufferSpec& spec);
         ~VulkanBuffer();
 
+		void* GetHandle() const override { return m_Buffer; }
+
         void* Map()   override;
         void  Unmap() override;
 
@@ -23,9 +25,6 @@ namespace Flux {
         VkBuffer      m_Buffer = VK_NULL_HANDLE;
         VmaAllocator  m_Allocator = VK_NULL_HANDLE;
         VmaAllocation m_Allocation = VK_NULL_HANDLE;
-
-    protected:
-        void* GetHandleImpl() const override { return m_Buffer; }
     };
 
 } // namespace Flux

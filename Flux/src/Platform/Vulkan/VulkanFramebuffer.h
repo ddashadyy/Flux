@@ -12,6 +12,8 @@ namespace Flux {
         VulkanFramebuffer(VkDevice device, const FramebufferSpec& spec);
         ~VulkanFramebuffer();
 
+		void* GetHandle() const override { return m_Framebuffer; }
+
         uint32_t GetWidth()  const override { return m_Spec.Width; }
         uint32_t GetHeight() const override { return m_Spec.Height; }
 
@@ -21,8 +23,5 @@ namespace Flux {
         VkDevice       m_Device = VK_NULL_HANDLE;
         VkFramebuffer  m_Framebuffer = VK_NULL_HANDLE;
         FramebufferSpec m_Spec{};
-
-    protected:
-        void* GetHandleImpl() const override { return m_Framebuffer; }
     };
 }

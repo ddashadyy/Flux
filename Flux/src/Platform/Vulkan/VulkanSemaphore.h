@@ -13,12 +13,10 @@ namespace Flux {
 		VulkanSemaphore(VkDevice device);
 		~VulkanSemaphore();
 
+		void* GetHandle() const override { return m_Semaphore; }
+
 	private:
 		VkDevice    m_Device    = VK_NULL_HANDLE;
 		VkSemaphore m_Semaphore = VK_NULL_HANDLE;
-
-	protected:
-		void* GetHandleImpl() const override { return m_Semaphore; }
-
 	};
 }

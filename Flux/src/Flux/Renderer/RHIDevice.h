@@ -55,8 +55,7 @@ namespace Flux {
     public:
         virtual ~RHIDevice() = default;
 
-        template<typename T>
-        T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
+        virtual void* GetHandle() const = 0;
 
         // -----------------------------------------------------------------
         // Resource creation
@@ -110,9 +109,6 @@ namespace Flux {
         virtual DeviceMemoryStats GetMemoryStatistics() const = 0;
 
         virtual void WaitIdle() const = 0;
-
-    protected:
-        virtual void* GetHandleImpl() const = 0;
     };
 
 } // namespace Flux

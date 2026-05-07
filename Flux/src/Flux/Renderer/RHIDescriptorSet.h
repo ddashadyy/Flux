@@ -47,14 +47,10 @@ namespace Flux {
     public:
         virtual ~RHIDescriptorSetLayout() = default;
 
-        template<typename T>
-        T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
+        virtual void* GetHandle() const = 0;
 
         virtual uint32_t GetBindingCount() const = 0;
         virtual const DescriptorSetLayoutDesc& GetDesc() const = 0;
-
-    protected:
-        virtual void* GetHandleImpl() const = 0;
     };
 
     // -------------------------------------------------------------------------
@@ -66,8 +62,7 @@ namespace Flux {
     public:
         virtual ~RHIDescriptorSet() = default;
 
-        template<typename T>
-        T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
+        virtual void* GetHandle() const = 0;
 
         // Bind конкретных ресурсов по binding slot
         virtual void BindBuffer(uint32_t binding, const RHIBuffer*  buffer)   = 0;
@@ -78,9 +73,6 @@ namespace Flux {
 
         // Применить все накопленные bind
         virtual void Update() = 0;
-
-    protected:
-        virtual void* GetHandleImpl() const = 0;
     };
 
 } // namespace Flux

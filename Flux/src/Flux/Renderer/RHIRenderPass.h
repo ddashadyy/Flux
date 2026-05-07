@@ -67,16 +67,12 @@ namespace Flux {
     public:
         virtual ~RHIRenderPass() = default;
 
-        template<typename T>
-        T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
+        virtual void* GetHandle() const = 0;
 
         virtual uint32_t GetColorAttachmentCount() const = 0;
         virtual bool     HasDepthAttachment()      const = 0;
 
         virtual const RenderPassDesc& GetDesc() const = 0;
-
-    protected:
-        virtual void* GetHandleImpl() const = 0;
     };
 
 } // namespace Flux

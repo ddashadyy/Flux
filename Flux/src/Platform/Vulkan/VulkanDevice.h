@@ -16,6 +16,8 @@ namespace Flux {
         VulkanDevice(void* windowHandle, uint32_t width, uint32_t height);
         ~VulkanDevice() override;
 
+		void* GetHandle() const override { return m_Device; }
+
         // -----------------------------------------------------------------
         // Resource creation
         // -----------------------------------------------------------------
@@ -96,8 +98,6 @@ namespace Flux {
         VkCommandBuffer m_ImmediateCmd = VK_NULL_HANDLE;
         VkFence         m_ImmediateFence = VK_NULL_HANDLE;
 
-    protected:
-        void* GetHandleImpl() const override { return m_Device; }
     };
 
 } // namespace Flux

@@ -12,6 +12,8 @@ namespace Flux {
 		VulkanFence(VkDevice device, bool signaled = false);
 		~VulkanFence();
 
+		void* GetHandle() const override { return m_Fence; }
+
 		void Wait(uint64_t timeout = UINT64_MAX) override;
 		void Reset() override;
 		bool IsSignaled() const override;
@@ -19,8 +21,5 @@ namespace Flux {
 	private:
 		VkDevice m_Device = VK_NULL_HANDLE;
 		VkFence  m_Fence  = VK_NULL_HANDLE;
-
-	protected:
-		void* GetHandleImpl() const override { return m_Fence; }
 	};
 }

@@ -28,8 +28,7 @@ namespace Flux {
     public:
         virtual ~RHICommandList() = default;
 
-        template<typename T>
-        T GetHandle() const { return reinterpret_cast<T>(GetHandleImpl()); }
+        virtual void* GetHandle() const = 0;
 
         // -----------------------------------------------------------------
         // Recording
@@ -143,9 +142,6 @@ namespace Flux {
         virtual void BufferBarrier(RHIBuffer*    buffer,
                                    ResourceState oldState,
                                    ResourceState newState) = 0; // нужен для storage buffer в compute
-
-    protected:
-        virtual void* GetHandleImpl() const = 0;
     };
 
 } // namespace Flux

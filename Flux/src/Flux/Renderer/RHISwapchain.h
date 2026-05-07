@@ -16,6 +16,8 @@ namespace Flux {
     public:
         virtual ~RHISwapchain() = default;
 
+        virtual void* GetHandle() const = 0;
+
         virtual uint32_t AcquireNextImage(RHISemaphore* semaphore) = 0;
         virtual void     Present(RHISemaphore* semaphore, uint32_t imageIndex) = 0;
         virtual void     Resize(uint32_t w, uint32_t h) = 0;

@@ -18,6 +18,8 @@ namespace Flux {
         VulkanTexture(VkDevice device, VmaAllocator allocator, const TextureSpec& spec);
         ~VulkanTexture();
 
+		void* GetHandle() const override { return m_Image; }
+
         const TextureSpec& GetSpec() const override { return m_Spec; }
 
         // Upload пикселей — вызывается снаружи через Device::ImmediateSubmit
@@ -64,9 +66,6 @@ namespace Flux {
         VkCommandPool m_CommandPool = VK_NULL_HANDLE; 
 
         TextureSpec   m_Spec{};
-
-    protected:
-        void* GetHandleImpl() const override { return m_Image; }
     };
 
     // -------------------------------------------------------------------------
@@ -86,6 +85,8 @@ namespace Flux {
             m_Spec.Usage = TextureUsage::RenderTarget;
         }
 
+		void* GetHandle() const override { return m_Image; }
+
         const TextureSpec& GetSpec() const override { return m_Spec; }
 
         VkImage     GetImage()     const { return m_Image; }
@@ -98,9 +99,6 @@ namespace Flux {
         VkImage     m_Image = VK_NULL_HANDLE;
         VkImageView m_ImageView = VK_NULL_HANDLE;
         TextureSpec m_Spec{};
-
-    protected:
-        void* GetHandleImpl() const override { return m_Image; }
     };
 
 } // namespace Flux
