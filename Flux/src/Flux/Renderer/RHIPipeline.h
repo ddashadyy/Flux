@@ -156,7 +156,7 @@ namespace Flux {
         virtual PipelineType GetType()  const = 0;
         virtual bool         IsValid()  const = 0;
 
-        virtual const PipelineDesc& GetDesc() const = 0;  // вместо GetLayoutDesc — отдаём весь desc
+        virtual const PipelineDesc& GetDesc() const = 0;
     };
 
 } // namespace Flux
