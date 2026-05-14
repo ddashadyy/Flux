@@ -22,6 +22,7 @@ namespace Flux {
         float            GetFOV()      const { return m_FOV; }
 
         const glm::mat4& GetViewMatrix()           const { return m_ViewMatrix; }
+        const glm::mat4& GetProjectionMatrix()     const { return m_Projection; }
         const glm::mat4& GetViewProjectionMatrix() const { return m_ViewProjectionMatrix; }
 
         
