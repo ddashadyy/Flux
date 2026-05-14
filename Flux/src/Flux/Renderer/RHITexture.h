@@ -17,7 +17,6 @@ namespace Flux {
         CubeMap        = 3,
     };
 
-    // Битмаска — текстура может быть RenderTarget | Sampled (G-buffer)
     enum class TextureUsage : uint8_t
     {
         Sampled      = BIT(0),
@@ -37,7 +36,9 @@ namespace Flux {
         uint32_t     ArrayLayers = 1;
 
         Format       ImageFormat = Format::R8G8B8A8_UNORM;
+
         uint32_t     MipLevels   = 1;
+        bool         GenerateMipmaps = false;
 
         SampleCount  Samples     = SampleCount::x1;
 
@@ -64,7 +65,6 @@ namespace Flux {
 
         virtual void* GetNativeImageView() const = 0;
 
-        // Загрузить данные с CPU (только для CPU-visible / staging текстур)
         virtual void SetData(const void* data, uint32_t size) = 0;
     };
 
@@ -84,7 +84,7 @@ namespace Flux {
 
         float       MipLodBias   = 0.0f;
         float       MinLod       = 0.0f;
-        float       MaxLod       = 1000.0f; // VK_LOD_CLAMP_NONE аналог
+        float       MaxLod       = 1000.0f;
 
         bool        AnisotropyEnable = false;
         float       MaxAnisotropy    = 1.0f;
