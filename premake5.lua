@@ -23,8 +23,10 @@ IncludeDir["glm"] = "Flux/vendor/glm"
 IncludeDir["vma"] = "Flux/vendor/vma/include"
 IncludeDir["stb"] = "Flux/vendor/stb"
 IncludeDir["tinyobjloader"] = "Flux/vendor/tinyobjloader"
+IncludeDir["tinygltf"] = "Flux/vendor/tinygltf/include"
 IncludeDir["json"] = "Flux/vendor/json/include"
 IncludeDir["ImGuiFileDialog"] = "Flux/vendor/imguifiledialog/include"
+IncludeDir["ImGuizmo"] = "Flux/vendor/imguizmo/include"
 
 
 include "Flux/vendor/GLFW"
@@ -53,7 +55,10 @@ project "Flux"
 		"%{prj.name}/vendor/glm/glm/**.inl",
 		"%{prj.name}/vendor/stb/**.h",
 		"%{prj.name}/vendor/tinyobjloader/**.h",
-		"%{prj.name}/vendor/json/include/**.h",
+		"%{prj.name}/vendor/tinygltf/**.h",
+		"%{prj.name}/vendor/imguizmo/**.h",
+		"%{prj.name}/vendor/imguizmo/**.cpp",
+		"%{prj.name}/vendor/json/include/**.h"
 	}
 
 	includedirs
@@ -67,8 +72,10 @@ project "Flux"
 		"%{IncludeDir.vma}",
 		"%{IncludeDir.stb}",
 		"%{IncludeDir.tinyobjloader}",
+		"%{IncludeDir.tinygltf}",
 		"%{IncludeDir.json}",
-		"%{IncludeDir.ImGuiFileDialog}"
+		"%{IncludeDir.ImGuiFileDialog}",
+		"%{IncludeDir.ImGuizmo}"
 	}
 
 	links
@@ -78,6 +85,10 @@ project "Flux"
 		"%{LibDir.Vulkan}/vulkan-1.lib",
 		"ImGuiFileDialog"
 	}
+
+	filter "files:Flux/vendor/ImGuizmo/**.cpp"
+    	enablepch "Off"
+	filter {}
 
 	filter "system:windows"
 		systemversion "latest"
@@ -131,8 +142,10 @@ project "Sandbox"
 		"%{IncludeDir.vma}",
 		"%{IncludeDir.stb}",
 		"%{IncludeDir.tinyobjloader}",
+		"%{IncludeDir.tinygltf}",
 		"%{IncludeDir.json}",
-		"%{IncludeDir.ImGuiFileDialog}"
+		"%{IncludeDir.ImGuiFileDialog}",
+		"%{IncludeDir.ImGuizmo}"
 	}
 
 	links 
