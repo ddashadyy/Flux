@@ -5,9 +5,13 @@
 #include "VulkanSampler.h"
 #include "VulkanCommon.h"
 
-namespace Flux {
+namespace {
 
-    static VkDescriptorType ToVkDescriptorType(DescriptorType type)
+    using Flux::DescriptorType;
+    using Flux::DescriptorSetLayoutDesc;
+    using Flux::PendingWrite;
+
+    VkDescriptorType ToVkDescriptorType(DescriptorType type)
     {
         switch (type)
         {
@@ -21,6 +25,46 @@ namespace Flux {
         FL_CORE_ASSERT(false, "Unknown DescriptorType");
         return VK_DESCRIPTOR_TYPE_MAX_ENUM;
     }
+
+    DescriptorType ResolveDescriptorType(const DescriptorSetLayoutDesc& layoutDesc, uint32_t binding, DescriptorType fallback)
+    {
+        for (const auto& b : layoutDesc.Bindings)
+        {
+            if (b.Binding == binding)
+                return b.Type;
+        }
+        return fallback;
+    }
+
+    PendingWrite MakePendingWrite(VkDescriptorSet descriptorSet, uint32_t binding, VkDescriptorType vkType)
+    {
+        PendingWrite pw{};
+        pw.Write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        pw.Write.dstSet = descriptorSet;
+        pw.Write.dstBinding = binding;
+        pw.Write.dstArrayElement = 0;
+        pw.Write.descriptorCount = 1;
+        pw.Write.descriptorType = vkType;
+        return pw;
+    }
+
+    PendingWrite& SubmitPendingWrite(std::vector<PendingWrite>& pending, PendingWrite pw, bool isBuffer)
+    {
+        pw.IsBuffer = isBuffer;
+        pending.emplace_back(std::move(pw));
+
+        auto& back = pending.back();
+        if (isBuffer)
+            back.Write.pBufferInfo = &back.BufferInfo;
+        else
+            back.Write.pImageInfo = &back.ImageInfo;
+
+        return back;
+    }
+
+} // anonymous namespace
+
+namespace Flux {
 
     // -------------------------------------------------------------------------
     // Layout
@@ -49,8 +93,6 @@ namespace Flux {
 
         FL_CORE_ASSERT(vkCreateDescriptorSetLayout(m_Device, &info, nullptr, &m_Layout) == VK_SUCCESS,
             "Failed to create DescriptorSetLayout");
-
-        FL_CORE_INFO("Created Vulkan DescriptorSetLayout");
     }
 
     VulkanDescriptorSetLayout::~VulkanDescriptorSetLayout()
@@ -74,8 +116,6 @@ namespace Flux {
 
         FL_CORE_ASSERT(vkAllocateDescriptorSets(m_Device, &allocInfo, &m_DescriptorSet) == VK_SUCCESS,
             "Failed to allocate DescriptorSet");
-
-        FL_CORE_INFO("Created Vulkan DescriptorSet");
     }
 
     VulkanDescriptorSet::~VulkanDescriptorSet()
@@ -89,62 +129,32 @@ namespace Flux {
 
     void VulkanDescriptorSet::BindBuffer(uint32_t binding, const RHIBuffer* buffer)
     {
-        // Определяем реальный тип по layout — не хардкодим Uniform
-        DescriptorType descType = DescriptorType::UniformBuffer;
-        for (const auto& b : m_LayoutDesc.Bindings)
-        {
-            if (b.Binding == binding) { descType = b.Type; break; }
-        }
-
+        const auto descType = ResolveDescriptorType(m_LayoutDesc, binding, DescriptorType::UniformBuffer);
         const auto* vkBuf = static_cast<const VulkanBuffer*>(buffer);
 
-        PendingWrite pw{};
-        pw.BufferInfo.buffer = vkBuf->GetHandle<VkBuffer>();
+        auto pw = MakePendingWrite(m_DescriptorSet, binding, ToVkDescriptorType(descType));
+        pw.BufferInfo.buffer = static_cast<VkBuffer>(vkBuf->GetHandle());
         pw.BufferInfo.offset = 0;
         pw.BufferInfo.range = vkBuf->GetSize();
 
-        pw.Write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        pw.Write.dstSet = m_DescriptorSet;
-        pw.Write.dstBinding = binding;
-        pw.Write.dstArrayElement = 0;
-        pw.Write.descriptorCount = 1;
-        pw.Write.descriptorType = ToVkDescriptorType(descType);
-        pw.Write.pBufferInfo = &pw.BufferInfo; // указывает внутрь struct — безопасно после push_back если reserve
-
-        m_Pending.push_back(pw);
-        // Обновляем указатель после push_back (вектор мог переаллоцироваться)
-        m_Pending.back().Write.pBufferInfo = &m_Pending.back().BufferInfo;
+        SubmitPendingWrite(m_Pending, std::move(pw), true);
     }
 
     void VulkanDescriptorSet::BindTexture(uint32_t binding, const RHITexture* texture)
     {
-        DescriptorType descType = DescriptorType::CombinedImageSampler;
-        for (const auto& b : m_LayoutDesc.Bindings)
-        {
-            if (b.Binding == binding) { descType = b.Type; break; }
-        }
-
+        const auto descType = ResolveDescriptorType(m_LayoutDesc, binding, DescriptorType::CombinedImageSampler);
         const auto* vkTex = static_cast<const VulkanTexture*>(texture);
 
-        // Layout текстуры в шейдере — зависит от типа дескриптора
-        VkImageLayout layout = (descType == DescriptorType::StorageImage)
+        const VkImageLayout layout = (descType == DescriptorType::StorageImage)
             ? VK_IMAGE_LAYOUT_GENERAL
             : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        PendingWrite pw{};
+        auto pw = MakePendingWrite(m_DescriptorSet, binding, ToVkDescriptorType(descType));
         pw.ImageInfo.imageView = vkTex->GetImageView();
         pw.ImageInfo.imageLayout = layout;
-        pw.ImageInfo.sampler = VK_NULL_HANDLE; // самплер BindSampler-ом или отдельно
+        pw.ImageInfo.sampler = VK_NULL_HANDLE;
 
-        pw.Write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        pw.Write.dstSet = m_DescriptorSet;
-        pw.Write.dstBinding = binding;
-        pw.Write.dstArrayElement = 0;
-        pw.Write.descriptorCount = 1;
-        pw.Write.descriptorType = ToVkDescriptorType(descType);
-
-        m_Pending.push_back(pw);
-        m_Pending.back().Write.pImageInfo = &m_Pending.back().ImageInfo;
+        SubmitPendingWrite(m_Pending, std::move(pw), false);
     }
 
     void VulkanDescriptorSet::BindTexture(uint32_t binding, const RHITexture* texture, const RHISampler* sampler)
@@ -152,46 +162,25 @@ namespace Flux {
         const auto* vkTex = static_cast<const VulkanTexture*>(texture);
         const auto* vkSampler = static_cast<const VulkanSampler*>(sampler);
 
-        PendingWrite pw{};
-        pw.IsBuffer = false;
+        auto pw = MakePendingWrite(m_DescriptorSet, binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         pw.ImageInfo.imageView = vkTex->GetImageView();
         pw.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        pw.ImageInfo.sampler = vkSampler ? vkSampler->GetHandle<VkSampler>() : VK_NULL_HANDLE;
+        pw.ImageInfo.sampler = vkSampler ? static_cast<VkSampler>(vkSampler->GetHandle()) : VK_NULL_HANDLE;
 
-        pw.Write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        pw.Write.dstSet = m_DescriptorSet;
-        pw.Write.dstBinding = binding;
-        pw.Write.dstArrayElement = 0;
-        pw.Write.descriptorCount = 1;
-        pw.Write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-
-        m_Pending.push_back(pw);
+        SubmitPendingWrite(m_Pending, std::move(pw), false);
     }
 
     void VulkanDescriptorSet::BindSampler(uint32_t binding, const RHISampler* sampler)
     {
-        DescriptorType descType = DescriptorType::Sampler;
-        for (const auto& b : m_LayoutDesc.Bindings)
-        {
-            if (b.Binding == binding) { descType = b.Type; break; }
-        }
-
+        const auto descType = ResolveDescriptorType(m_LayoutDesc, binding, DescriptorType::Sampler);
         const auto* vkSampler = static_cast<const VulkanSampler*>(sampler);
 
-        PendingWrite pw{};
-        pw.ImageInfo.sampler = vkSampler->GetHandle<VkSampler>();
+        auto pw = MakePendingWrite(m_DescriptorSet, binding, ToVkDescriptorType(descType));
+        pw.ImageInfo.sampler = vkSampler ? static_cast<VkSampler>(vkSampler->GetHandle()) : VK_NULL_HANDLE;
         pw.ImageInfo.imageView = VK_NULL_HANDLE;
         pw.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-        pw.Write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        pw.Write.dstSet = m_DescriptorSet;
-        pw.Write.dstBinding = binding;
-        pw.Write.dstArrayElement = 0;
-        pw.Write.descriptorCount = 1;
-        pw.Write.descriptorType = ToVkDescriptorType(descType);
-
-        m_Pending.push_back(pw);
-        m_Pending.back().Write.pImageInfo = &m_Pending.back().ImageInfo;
+        SubmitPendingWrite(m_Pending, std::move(pw), false);
     }
 
     // -------------------------------------------------------------------------
