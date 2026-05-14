@@ -8,69 +8,106 @@
 #include "VulkanFramebuffer.h"
 #include "VulkanCommon.h"
 
+namespace {
+    
+    using Flux::ResourceState;
+
+    constexpr VkImageLayout ToVkLayout(ResourceState state)
+    {
+        using enum ResourceState;
+
+        switch (state)
+        {
+        case Undefined:         return VK_IMAGE_LAYOUT_UNDEFINED;
+        case RenderTarget:      return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        case ShaderResource:    return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        case UnorderedAccess:   return VK_IMAGE_LAYOUT_GENERAL;
+        case TransferSrc:       return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        case TransferDst:       return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        case Present:           return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        case DepthStencilWrite: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        case DepthStencilRead:  return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+        default:
+            FL_CONSTEXPR_ASSERT(false, "Unknown ResourceState");
+            return VK_IMAGE_LAYOUT_UNDEFINED;
+        }
+    }
+
+    constexpr VkAccessFlags ToVkAccess(ResourceState state)
+    {
+        using enum ResourceState;
+
+        switch (state)
+        {
+        case Undefined:         return 0;
+        case RenderTarget:      return VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        case ShaderResource:    return VK_ACCESS_SHADER_READ_BIT;
+        case UnorderedAccess:   return VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        case TransferSrc:       return VK_ACCESS_TRANSFER_READ_BIT;
+        case TransferDst:       return VK_ACCESS_TRANSFER_WRITE_BIT;
+        case Present:           return 0;
+        case DepthStencilWrite: return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        case DepthStencilRead:  return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+        case IndirectArgument:  return VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+        default:
+            FL_CONSTEXPR_ASSERT(false, "Unknown ResourceState");
+            return 0;
+        }
+    }
+
+    constexpr VkPipelineStageFlags ToVkStage(ResourceState state)
+    {
+        using enum ResourceState;
+
+        switch (state)
+        {
+        case Undefined:         return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        case RenderTarget:      return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        case ShaderResource:    return VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        case UnorderedAccess:   return VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        case TransferSrc:
+        case TransferDst:       return VK_PIPELINE_STAGE_TRANSFER_BIT;
+        case Present:           return VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        case DepthStencilWrite: return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        case DepthStencilRead:  return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        case IndirectArgument:  return VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+        default:
+            FL_CONSTEXPR_ASSERT(false, "Unknown ResourceState");
+            return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        }
+    }
+
+    constexpr bool IsDepthState(ResourceState state)
+    {
+        using enum ResourceState;
+        return state == DepthStencilWrite || state == DepthStencilRead;
+    }
+
+    constexpr const char* ResourceStateToString(ResourceState state)
+    {
+        using enum ResourceState;
+
+        switch (state)
+        {
+        case Undefined:          return "Undefined";
+        case RenderTarget:       return "RenderTarget";
+        case ShaderResource:     return "ShaderResource";
+        case UnorderedAccess:    return "UnorderedAccess";
+        case TransferSrc:        return "TransferSrc";
+        case TransferDst:        return "TransferDst";
+        case Present:            return "Present";
+        case DepthStencilWrite:  return "DepthStencilWrite";
+        case DepthStencilRead:   return "DepthStencilRead";
+        case IndirectArgument:   return "IndirectArgument";
+        default:
+            FL_CONSTEXPR_ASSERT(false, "Unknown ResourceState");
+            return "Unknown";
+        }
+    }
+
+} // anonymous namespace
+
 namespace Flux {
-
-    // -------------------------------------------------------------------------
-    // Barrier helpers
-    // -------------------------------------------------------------------------
-
-    static VkImageLayout ToVkLayout(ResourceState state)
-    {
-        switch (state)
-        {
-        case ResourceState::Undefined:         return VK_IMAGE_LAYOUT_UNDEFINED;
-        case ResourceState::RenderTarget:      return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        case ResourceState::ShaderResource:    return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        case ResourceState::UnorderedAccess:   return VK_IMAGE_LAYOUT_GENERAL;
-        case ResourceState::TransferSrc:       return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        case ResourceState::TransferDst:       return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        case ResourceState::Present:           return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-        case ResourceState::DepthStencilWrite: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        case ResourceState::DepthStencilRead:  return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-        default: FL_CORE_ASSERT(false, "Unknown ResourceState"); return VK_IMAGE_LAYOUT_UNDEFINED;
-        }
-    }
-
-    static VkAccessFlags ToVkAccess(ResourceState state)
-    {
-        switch (state)
-        {
-        case ResourceState::Undefined:         return 0;
-        case ResourceState::RenderTarget:      return VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        case ResourceState::ShaderResource:    return VK_ACCESS_SHADER_READ_BIT;
-        case ResourceState::UnorderedAccess:   return VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-        case ResourceState::TransferSrc:       return VK_ACCESS_TRANSFER_READ_BIT;
-        case ResourceState::TransferDst:       return VK_ACCESS_TRANSFER_WRITE_BIT;
-        case ResourceState::Present:           return 0;
-        case ResourceState::DepthStencilWrite: return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        case ResourceState::DepthStencilRead:  return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-        case ResourceState::IndirectArgument:  return VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
-        default: return 0;
-        }
-    }
-
-    static VkPipelineStageFlags ToVkStage(ResourceState state)
-    {
-        switch (state)
-        {
-        case ResourceState::Undefined:         return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        case ResourceState::RenderTarget:      return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        case ResourceState::ShaderResource:    return VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT; 
-        case ResourceState::UnorderedAccess:   return VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-        case ResourceState::TransferSrc:
-        case ResourceState::TransferDst:       return VK_PIPELINE_STAGE_TRANSFER_BIT;
-        case ResourceState::Present:           return VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-        case ResourceState::DepthStencilWrite: return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-        case ResourceState::DepthStencilRead:  return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-        case ResourceState::IndirectArgument:  return VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
-        default: return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        }
-    }
-
-    static bool IsDepthState(ResourceState state)
-    {
-        return state == ResourceState::DepthStencilWrite || state == ResourceState::DepthStencilRead;
-    }
 
     // -------------------------------------------------------------------------
     // Constructor / Destructor
@@ -143,8 +180,8 @@ namespace Flux {
             clearCount += 1;
 
         VkRenderPassBeginInfo beginInfo{ VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-        beginInfo.renderPass = vkPass->GetHandle<VkRenderPass>();
-        beginInfo.framebuffer = vkFb->GetHandle<VkFramebuffer>();
+        beginInfo.renderPass = static_cast<VkRenderPass>(vkPass->GetHandle());
+        beginInfo.framebuffer = static_cast<VkFramebuffer>(vkFb->GetHandle());
         beginInfo.renderArea = { { 0, 0 }, { vkFb->GetWidth(), vkFb->GetHeight() } };
         beginInfo.clearValueCount = clearCount;
         beginInfo.pClearValues = clearCount > 0 ? clearValues.data() : nullptr;
@@ -181,13 +218,13 @@ namespace Flux {
     void VulkanCommandList::SetPipeline(RHIPipeline* pipeline)
     {
         auto* vkPipeline = static_cast<VulkanPipeline*>(pipeline);
-        m_CurrentPipelineLayout = vkPipeline->GetLayout<VkPipelineLayout>();
+        m_CurrentPipelineLayout = static_cast<VkPipelineLayout>(vkPipeline->GetLayout());
 
         VkPipelineBindPoint bindPoint = (pipeline->GetType() == PipelineType::Compute)
             ? VK_PIPELINE_BIND_POINT_COMPUTE
             : VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-        vkCmdBindPipeline(m_CommandBuffer, bindPoint, vkPipeline->GetHandle<VkPipeline>());
+        vkCmdBindPipeline(m_CommandBuffer, bindPoint, static_cast<VkPipeline>(vkPipeline->GetHandle()));
     }
 
     void VulkanCommandList::PushConstants(RHIPipeline* pipeline,
@@ -196,21 +233,21 @@ namespace Flux {
     {
         auto* vkPipeline = static_cast<VulkanPipeline*>(pipeline);
         vkCmdPushConstants(m_CommandBuffer,
-            vkPipeline->GetLayout<VkPipelineLayout>(),
+            static_cast<VkPipelineLayout>(vkPipeline->GetLayout()),
             GetShaderStageFlags(stage),
             offset, size, data);
     }
 
     void VulkanCommandList::BindVertexBuffer(RHIBuffer* buffer, uint64_t offset)
     {
-        VkBuffer vkBuf = buffer->GetHandle<VkBuffer>();
+        VkBuffer vkBuf = static_cast<VkBuffer>(buffer->GetHandle());
         vkCmdBindVertexBuffers(m_CommandBuffer, 0, 1, &vkBuf, &offset);
     }
 
     void VulkanCommandList::BindIndexBuffer(RHIBuffer* buffer, IndexType indexType, uint64_t offset)
     {
         vkCmdBindIndexBuffer(m_CommandBuffer,
-            buffer->GetHandle<VkBuffer>(), offset,
+            static_cast<VkBuffer>(buffer->GetHandle()), offset,
             indexType == IndexType::Uint16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
     }
 
@@ -219,13 +256,13 @@ namespace Flux {
         RHIPipeline* pipeline)
     {
         auto* vkPipeline = static_cast<VulkanPipeline*>(pipeline);
-        VkPipelineLayout layout = vkPipeline->GetLayout<VkPipelineLayout>();
+        VkPipelineLayout layout = static_cast<VkPipelineLayout>(vkPipeline->GetLayout());
 
         VkPipelineBindPoint bindPoint = (pipeline->GetType() == PipelineType::Compute)
             ? VK_PIPELINE_BIND_POINT_COMPUTE
             : VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-        auto set = descriptorSet->GetHandle<VkDescriptorSet>();
+        auto set = static_cast<VkDescriptorSet>(descriptorSet->GetHandle());
         vkCmdBindDescriptorSets(m_CommandBuffer, bindPoint, layout, setIndex, 1, &set, 0, nullptr);
     }
 
@@ -249,14 +286,14 @@ namespace Flux {
     void VulkanCommandList::DrawIndirect(RHIBuffer* argsBuffer, uint64_t offset, uint32_t drawCount)
     {
         vkCmdDrawIndirect(m_CommandBuffer,
-            argsBuffer->GetHandle<VkBuffer>(), offset, drawCount,
+            static_cast<VkBuffer>(argsBuffer->GetHandle()), offset, drawCount,
             sizeof(VkDrawIndirectCommand));
     }
 
     void VulkanCommandList::DrawIndexedIndirect(RHIBuffer* argsBuffer, uint64_t offset, uint32_t drawCount)
     {
         vkCmdDrawIndexedIndirect(m_CommandBuffer,
-            argsBuffer->GetHandle<VkBuffer>(), offset, drawCount,
+            static_cast<VkBuffer>(argsBuffer->GetHandle()), offset, drawCount,
             sizeof(VkDrawIndexedIndirectCommand));
     }
 
@@ -271,7 +308,7 @@ namespace Flux {
 
     void VulkanCommandList::DispatchIndirect(RHIBuffer* argsBuffer, uint64_t offset)
     {
-        vkCmdDispatchIndirect(m_CommandBuffer, argsBuffer->GetHandle<VkBuffer>(), offset);
+        vkCmdDispatchIndirect(m_CommandBuffer, static_cast<VkBuffer>(argsBuffer->GetHandle()), offset);
     }
 
     // -------------------------------------------------------------------------
@@ -286,7 +323,7 @@ namespace Flux {
         region.dstOffset = dstOffset;
         region.size = size == 0 ? src->GetSize() : size;
         vkCmdCopyBuffer(m_CommandBuffer,
-            src->GetHandle<VkBuffer>(), dst->GetHandle<VkBuffer>(), 1, &region);
+            static_cast<VkBuffer>(src->GetHandle()), static_cast<VkBuffer>(dst->GetHandle()), 1, &region);
     }
 
     void VulkanCommandList::CopyBufferToTexture(RHIBuffer* src, RHITexture* dst,
@@ -303,7 +340,7 @@ namespace Flux {
         copy.imageExtent = { region.Width, region.Height, region.Depth };
 
         vkCmdCopyBufferToImage(m_CommandBuffer,
-            src->GetHandle<VkBuffer>(),
+            static_cast<VkBuffer>(src->GetHandle()),
             vkTexture->GetImage(),
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             1, &copy);
@@ -372,7 +409,7 @@ namespace Flux {
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.buffer = buffer->GetHandle<VkBuffer>();
+        barrier.buffer = static_cast<VkBuffer>(buffer->GetHandle());
         barrier.offset = 0;
         barrier.size = VK_WHOLE_SIZE;
 
@@ -381,5 +418,4 @@ namespace Flux {
             VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
             0, 0, nullptr, 1, &barrier, 0, nullptr);
     }
-
 } // namespace Flux
