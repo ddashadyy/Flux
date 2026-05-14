@@ -60,6 +60,8 @@ namespace Flux {
         bool        HasResolve           = false;
         ImageLayout ResolveInitialLayout = ImageLayout::Undefined;
         ImageLayout ResolveFinalLayout   = ImageLayout::Present;
+
+		const char* DebugName            = nullptr;
     };
 
     class RHIRenderPass
