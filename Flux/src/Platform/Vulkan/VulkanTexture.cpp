@@ -5,41 +5,47 @@
 
 #include <functional>
 
-namespace Flux {
+namespace {
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
+    using Flux::TextureUsage;
 
-    // TextureUsage теперь битмаска — строим usage флаги через OR
-    static VkImageUsageFlags GetImageUsageFlags(TextureUsage usage)
+    constexpr VkImageUsageFlags GetImageUsageFlags(TextureUsage usage)
     {
+        using enum TextureUsage;
+
         VkImageUsageFlags flags = 0;
 
-        if (static_cast<uint8_t>(usage & TextureUsage::Sampled))
+        if (HasFlag(usage, Sampled))
             flags |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        if (static_cast<uint8_t>(usage & TextureUsage::RenderTarget))
+        if (HasFlag(usage, RenderTarget))
             flags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        if (static_cast<uint8_t>(usage & TextureUsage::DepthStencil))
+        if (HasFlag(usage, DepthStencil))
             flags |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-        if (static_cast<uint8_t>(usage & TextureUsage::Storage))
+        if (HasFlag(usage, Storage))
             flags |= VK_IMAGE_USAGE_STORAGE_BIT;
-        if (static_cast<uint8_t>(usage & TextureUsage::TransferSrc))
+        if (HasFlag(usage, TransferSrc))
             flags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        if (static_cast<uint8_t>(usage & TextureUsage::TransferDst))
+        if (HasFlag(usage, TransferDst))
             flags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-        FL_CORE_ASSERT(flags != 0, "TextureUsage resulted in empty VkImageUsageFlags!");
+        FL_CONSTEXPR_ASSERT(flags != 0, "TextureUsage resulted in empty VkImageUsageFlags!");
+
         return flags;
     }
 
-    // Aspect: depth или color — определяем по usage
-    static VkImageAspectFlags GetImageAspect(TextureUsage usage)
+    constexpr VkImageAspectFlags GetImageAspect(TextureUsage usage)
     {
-        if (static_cast<uint8_t>(usage & TextureUsage::DepthStencil))
+        using enum TextureUsage;
+
+        if (HasFlag(usage, DepthStencil))
             return VK_IMAGE_ASPECT_DEPTH_BIT;
+
         return VK_IMAGE_ASPECT_COLOR_BIT;
     }
+
+} // anonymous namespace
+
+namespace Flux {
 
     // -------------------------------------------------------------------------
     // VulkanTexture
@@ -48,13 +54,10 @@ namespace Flux {
     VulkanTexture::VulkanTexture(VkDevice device, VmaAllocator allocator, const TextureSpec& spec)
         : m_Device(device), m_Allocator(allocator), m_Spec(spec)
     {
-        // Автовычисление mip-ов только если текстура sampled и запрошен 1 mip (дефолт)
-        const bool isSampled = static_cast<uint8_t>(m_Spec.Usage & TextureUsage::Sampled) != 0;
-        if (isSampled && m_Spec.MipLevels == 1)
+        if (m_Spec.GenerateMipmaps)
         {
             m_Spec.MipLevels = static_cast<uint32_t>(
                 std::floor(std::log2(std::max(m_Spec.Width, m_Spec.Height)))) + 1;
-            // Нужен TransferSrc для blit между mip-ами
             m_Spec.Usage = m_Spec.Usage | TextureUsage::TransferSrc | TextureUsage::TransferDst;
         }
 
@@ -200,7 +203,6 @@ namespace Flux {
             if (mipH > 1) mipH /= 2;
         }
 
-        // Последний mip
         barrier.subresourceRange.baseMipLevel = m_Spec.MipLevels - 1;
         barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -236,7 +238,7 @@ namespace Flux {
                 VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                 VK_PIPELINE_STAGE_TRANSFER_BIT);
 
-            RecordUpload(cmd, staging.GetHandle<VkBuffer>());
+            RecordUpload(cmd, static_cast<VkBuffer>(staging.GetHandle()));
 
             if (m_Spec.MipLevels > 1)
                 RecordGenerateMipmaps(cmd);
