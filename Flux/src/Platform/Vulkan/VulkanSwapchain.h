@@ -1,9 +1,7 @@
 #pragma once
 
 #include "Flux/Renderer/RHISwapchain.h"
-
 #include "VulkanTexture.h"
-
 #include <vulkan/vulkan.h>
 
 namespace Flux {
@@ -16,7 +14,7 @@ namespace Flux {
             uint32_t width, uint32_t height);
         ~VulkanSwapchain();
 
-		void* GetHandle() const override { return m_Swapchain; }
+        void* GetHandle() const override { return m_Swapchain; }
 
         uint32_t AcquireNextImage(RHISemaphore* semaphore)              override;
         void     Present(RHISemaphore* semaphore, uint32_t imageIndex)  override;
@@ -30,7 +28,6 @@ namespace Flux {
 
         RHITexture* GetColorTarget(uint32_t index) const override { return m_ColorTargets[index].get(); }
 
-        // Renderer должен проверять это после Present / AcquireNextImage
         bool NeedsResize() const override { return m_NeedsResize; }
 
         VkExtent2D GetExtent() const { return m_Extent; }
@@ -38,6 +35,7 @@ namespace Flux {
     private:
         void CreateSwapchain(uint32_t width, uint32_t height);
         void CreateImageViews();
+
         void Cleanup();
 
     private:
