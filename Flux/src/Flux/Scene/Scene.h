@@ -3,6 +3,8 @@
 #include "Entity.h"
 #include "Flux/Renderer/RHICommandList.h"
 
+#include <algorithm>
+
 namespace Flux {
 
     class Scene
@@ -19,10 +21,33 @@ namespace Flux {
             return e;
         }
 
+        Entity& DuplicateEntity(size_t index)
+        {
+            if (index >= m_Entities.size())
+                return m_Entities.back();
+
+            Entity newEntity = m_Entities[index];
+
+            newEntity.GetTransform().Position.x += 1.0f;
+
+            if (!newEntity.GetName().empty())
+                newEntity.SetName(newEntity.GetName() + " Copy");
+
+            m_Entities.emplace_back(newEntity);
+            return m_Entities.back();
+        }
+
         void RemoveEntity(size_t index)
         {
             if (index < m_Entities.size())
-                m_Entities.erase(m_Entities.begin() + index);
+            {
+                m_Entities[index].MarkForDeletion();
+            }
+        }
+
+        void ProcessDeletions()
+        {
+            std::erase_if(m_Entities, [](const Entity& e) { return e.IsMarkedForDeletion(); });
         }
 
         Entities& GetEntities() { return m_Entities; }
