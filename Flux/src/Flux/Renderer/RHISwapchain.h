@@ -5,6 +5,7 @@
 #include "RHISemaphore.h"
 #include "RHIRenderPass.h"
 #include "RHITexture.h"
+#include "RHIFramebuffer.h"
 
 #include <cstdint>
 
