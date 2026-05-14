@@ -1,22 +1,8 @@
 #include "flpch.h"
 #include "VulkanShader.h"
-
-#include "Flux/Utils/PlatformUtils.h"
+#include "VulkanCommon.h"
 
 namespace Flux {
-
-	static std::string ShaderStageToString(ShaderStage stage)
-	{
-		switch (stage)
-		{
-		case ShaderStage::Vertex:   return "Vertex";
-		case ShaderStage::Fragment: return "Fragment";
-		case ShaderStage::Compute:  return "Compute";
-		}
-
-		FL_CORE_ASSERT(false, "Unknown shader stage!");
-		return "";
-	}
 
 	VulkanShader::VulkanShader(VkDevice device, ShaderStage stage, const std::vector<uint32_t>& spirv, const std::string& entryPoint)
 		: m_Device(device), m_Stage(stage), m_EntryPoint(entryPoint)
