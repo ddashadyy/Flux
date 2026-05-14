@@ -5,119 +5,160 @@
 #include "VulkanDescriptorSet.h"
 #include "VulkanCommon.h"
 
-namespace Flux {
+namespace {
 
-    // -------------------------------------------------------------------------
-    // Converters
-    // -------------------------------------------------------------------------
+    using Flux::ShaderDataType;
+    using Flux::PrimitiveTopology;
+    using Flux::CullMode;
+    using Flux::FillMode;
+    using Flux::FrontFace;
+    using Flux::CompareOp;
+    using Flux::BlendFactor;
+    using Flux::BlendOp;
 
-    static VkFormat ShaderDataTypeToVkFormat(ShaderDataType type)
+
+    constexpr VkFormat ShaderDataTypeToVkFormat(ShaderDataType type)
     {
+        using enum ShaderDataType;
+
         switch (type)
         {
-        case ShaderDataType::Float:  return VK_FORMAT_R32_SFLOAT;
-        case ShaderDataType::Float2: return VK_FORMAT_R32G32_SFLOAT;
-        case ShaderDataType::Float3: return VK_FORMAT_R32G32B32_SFLOAT;
-        case ShaderDataType::Float4: return VK_FORMAT_R32G32B32A32_SFLOAT;
-        case ShaderDataType::Int:    return VK_FORMAT_R32_SINT;
-        case ShaderDataType::Int2:   return VK_FORMAT_R32G32_SINT;
-        case ShaderDataType::Int3:   return VK_FORMAT_R32G32B32_SINT;
-        case ShaderDataType::Int4:   return VK_FORMAT_R32G32B32A32_SINT;
+        case Float:  return VK_FORMAT_R32_SFLOAT;
+        case Float2: return VK_FORMAT_R32G32_SFLOAT;
+        case Float3: return VK_FORMAT_R32G32B32_SFLOAT;
+        case Float4: return VK_FORMAT_R32G32B32A32_SFLOAT;
+        case Int:    return VK_FORMAT_R32_SINT;
+        case Int2:   return VK_FORMAT_R32G32_SINT;
+        case Int3:   return VK_FORMAT_R32G32B32_SINT;
+        case Int4:   return VK_FORMAT_R32G32B32A32_SINT;
         }
-        FL_CORE_ASSERT(false, "Unknown ShaderDataType");
+
+        FL_CONSTEXPR_ASSERT(false, "Unknown ShaderDataType");
         return VK_FORMAT_UNDEFINED;
     }
 
-    static VkPrimitiveTopology ToVkTopology(PrimitiveTopology t)
+    constexpr VkPrimitiveTopology ToVkTopology(PrimitiveTopology t)
     {
+        using enum PrimitiveTopology;
+
         switch (t)
         {
-        case PrimitiveTopology::TriangleList:  return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-        case PrimitiveTopology::TriangleStrip: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
-        case PrimitiveTopology::LineList:      return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-        case PrimitiveTopology::LineStrip:     return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
-        case PrimitiveTopology::PointList:     return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+        case TriangleList:  return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        case TriangleStrip: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+        case LineList:      return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+        case LineStrip:     return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
+        case PointList:     return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
         }
+
+        FL_CONSTEXPR_ASSERT(false, "Unknown PrimitiveTopology");
         return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     }
 
-    static VkCullModeFlags ToVkCullMode(CullMode m)
+    constexpr VkCullModeFlags ToVkCullMode(CullMode m)
     {
+        using enum CullMode;
+
         switch (m)
         {
-        case CullMode::None:  return VK_CULL_MODE_NONE;
-        case CullMode::Front: return VK_CULL_MODE_FRONT_BIT;
-        case CullMode::Back:  return VK_CULL_MODE_BACK_BIT;
+        case None:  return VK_CULL_MODE_NONE;
+        case Front: return VK_CULL_MODE_FRONT_BIT;
+        case Back:  return VK_CULL_MODE_BACK_BIT;
         }
+
+        FL_CONSTEXPR_ASSERT(false, "Unknown CullMode");
         return VK_CULL_MODE_BACK_BIT;
     }
 
-    static VkPolygonMode ToVkFillMode(FillMode m)
+    constexpr VkPolygonMode ToVkFillMode(FillMode m)
     {
+        using enum FillMode;
+
         switch (m)
         {
-        case FillMode::Solid:     return VK_POLYGON_MODE_FILL;
-        case FillMode::Wireframe: return VK_POLYGON_MODE_LINE;
+        case Solid:     return VK_POLYGON_MODE_FILL;
+        case Wireframe: return VK_POLYGON_MODE_LINE;
         }
+
+        FL_CONSTEXPR_ASSERT(false, "Unknown FillMode");
         return VK_POLYGON_MODE_FILL;
     }
 
-    static VkFrontFace ToVkFrontFace(FrontFace f)
+    constexpr VkFrontFace ToVkFrontFace(FrontFace f)
     {
+        using enum FrontFace;
+
         switch (f)
         {
-        case FrontFace::CounterClockwise: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
-        case FrontFace::Clockwise:        return VK_FRONT_FACE_CLOCKWISE;
+        case CounterClockwise: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        case Clockwise:        return VK_FRONT_FACE_CLOCKWISE;
         }
+
+        FL_CONSTEXPR_ASSERT(false, "Unknown FrontFace");
         return VK_FRONT_FACE_COUNTER_CLOCKWISE;
     }
 
-    static VkCompareOp ToVkCompareOp(CompareOp op)
+    constexpr VkCompareOp ToVkCompareOp(CompareOp op)
     {
+        using enum CompareOp;
+
         switch (op)
         {
-        case CompareOp::Never:          return VK_COMPARE_OP_NEVER;
-        case CompareOp::Less:           return VK_COMPARE_OP_LESS;
-        case CompareOp::Equal:          return VK_COMPARE_OP_EQUAL;
-        case CompareOp::LessOrEqual:    return VK_COMPARE_OP_LESS_OR_EQUAL;
-        case CompareOp::Greater:        return VK_COMPARE_OP_GREATER;
-        case CompareOp::NotEqual:       return VK_COMPARE_OP_NOT_EQUAL;
-        case CompareOp::GreaterOrEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
-        case CompareOp::Always:         return VK_COMPARE_OP_ALWAYS;
+        case Never:          return VK_COMPARE_OP_NEVER;
+        case Less:           return VK_COMPARE_OP_LESS;
+        case Equal:          return VK_COMPARE_OP_EQUAL;
+        case LessOrEqual:    return VK_COMPARE_OP_LESS_OR_EQUAL;
+        case Greater:        return VK_COMPARE_OP_GREATER;
+        case NotEqual:       return VK_COMPARE_OP_NOT_EQUAL;
+        case GreaterOrEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
+        case Always:         return VK_COMPARE_OP_ALWAYS;
         }
+
+        FL_CONSTEXPR_ASSERT(false, "Unknown CompareOp");
         return VK_COMPARE_OP_LESS;
     }
 
-    static VkBlendFactor ToVkBlendFactor(BlendFactor f)
+    constexpr VkBlendFactor ToVkBlendFactor(BlendFactor f)
     {
+        using enum BlendFactor;
+
         switch (f)
         {
-        case BlendFactor::Zero:             return VK_BLEND_FACTOR_ZERO;
-        case BlendFactor::One:              return VK_BLEND_FACTOR_ONE;
-        case BlendFactor::SrcColor:         return VK_BLEND_FACTOR_SRC_COLOR;
-        case BlendFactor::OneMinusSrcColor: return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
-        case BlendFactor::DstColor:         return VK_BLEND_FACTOR_DST_COLOR;
-        case BlendFactor::OneMinusDstColor: return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
-        case BlendFactor::SrcAlpha:         return VK_BLEND_FACTOR_SRC_ALPHA;
-        case BlendFactor::OneMinusSrcAlpha: return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        case BlendFactor::DstAlpha:         return VK_BLEND_FACTOR_DST_ALPHA;
-        case BlendFactor::OneMinusDstAlpha: return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+        case Zero:             return VK_BLEND_FACTOR_ZERO;
+        case One:              return VK_BLEND_FACTOR_ONE;
+        case SrcColor:         return VK_BLEND_FACTOR_SRC_COLOR;
+        case OneMinusSrcColor: return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+        case DstColor:         return VK_BLEND_FACTOR_DST_COLOR;
+        case OneMinusDstColor: return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
+        case SrcAlpha:         return VK_BLEND_FACTOR_SRC_ALPHA;
+        case OneMinusSrcAlpha: return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        case DstAlpha:         return VK_BLEND_FACTOR_DST_ALPHA;
+        case OneMinusDstAlpha: return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
         }
+
+        FL_CONSTEXPR_ASSERT(false, "Unknown BlendFactor");
         return VK_BLEND_FACTOR_ONE;
     }
 
-    static VkBlendOp ToVkBlendOp(BlendOp op)
+    constexpr VkBlendOp ToVkBlendOp(BlendOp op)
     {
+        using enum BlendOp;
+
         switch (op)
         {
-        case BlendOp::Add:             return VK_BLEND_OP_ADD;
-        case BlendOp::Subtract:        return VK_BLEND_OP_SUBTRACT;
-        case BlendOp::ReverseSubtract: return VK_BLEND_OP_REVERSE_SUBTRACT;
-        case BlendOp::Min:             return VK_BLEND_OP_MIN;
-        case BlendOp::Max:             return VK_BLEND_OP_MAX;
+        case Add:             return VK_BLEND_OP_ADD;
+        case Subtract:        return VK_BLEND_OP_SUBTRACT;
+        case ReverseSubtract: return VK_BLEND_OP_REVERSE_SUBTRACT;
+        case Min:             return VK_BLEND_OP_MIN;
+        case Max:             return VK_BLEND_OP_MAX;
         }
+
+        FL_CONSTEXPR_ASSERT(false, "Unknown BlendOp");
         return VK_BLEND_OP_ADD;
     }
+
+} // anonymous namespace
+
+namespace Flux {
 
     // -------------------------------------------------------------------------
     // Constructor
@@ -148,7 +189,7 @@ namespace Flux {
     {
         std::vector<VkDescriptorSetLayout> vkLayouts;
         for (const auto* layout : m_Desc.DescriptorSetLayouts)
-            if (layout) vkLayouts.push_back(layout->GetHandle<VkDescriptorSetLayout>());
+            if (layout) vkLayouts.emplace_back(static_cast<VkDescriptorSetLayout>(layout->GetHandle()));
 
         VkPipelineLayoutCreateInfo info{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
         info.setLayoutCount = static_cast<uint32_t>(vkLayouts.size());
@@ -184,7 +225,7 @@ namespace Flux {
             auto* vs = static_cast<const VulkanShader*>(m_Desc.VertexShader);
             VkPipelineShaderStageCreateInfo s{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
             s.stage = VK_SHADER_STAGE_VERTEX_BIT;
-            s.module = vs->GetHandle<VkShaderModule>();
+            s.module = static_cast<VkShaderModule>(vs->GetHandle());
             s.pName = vs->GetEntryPoint().c_str();
             stages.push_back(s);
         }
@@ -194,7 +235,7 @@ namespace Flux {
             auto* fs = static_cast<const VulkanShader*>(m_Desc.FragmentShader);
             VkPipelineShaderStageCreateInfo s{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
             s.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-            s.module = fs->GetHandle<VkShaderModule>();
+            s.module = static_cast<VkShaderModule>(fs->GetHandle());
             s.pName = fs->GetEntryPoint().c_str();
             stages.push_back(s);
         }
@@ -313,7 +354,7 @@ namespace Flux {
         pipelineInfo.pColorBlendState = &colorBlend;
         pipelineInfo.pDynamicState = &dynamicState;
         pipelineInfo.layout = m_PipelineLayout;
-        pipelineInfo.renderPass = m_Desc.RenderPass->GetHandle<VkRenderPass>();
+        pipelineInfo.renderPass = static_cast<VkRenderPass>(m_Desc.RenderPass->GetHandle());
         pipelineInfo.subpass = 0;
 
         FL_CORE_ASSERT(vkCreateGraphicsPipelines(m_Device, VK_NULL_HANDLE, 1,
@@ -335,7 +376,7 @@ namespace Flux {
 
         VkPipelineShaderStageCreateInfo stage{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
         stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        stage.module = cs->GetHandle<VkShaderModule>();
+        stage.module = static_cast<VkShaderModule>(cs->GetHandle());
         stage.pName = cs->GetEntryPoint().c_str();
 
         VkComputePipelineCreateInfo info{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
