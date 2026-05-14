@@ -1,28 +1,41 @@
 #include "flpch.h"
 #include "VulkanBuffer.h"
 
-namespace Flux {
 
-    static VkBufferUsageFlags GetVkBufferUsageFlags(BufferUsage usage)
+namespace {
+
+    constexpr VkBufferUsageFlags GetVkBufferUsageFlags(Flux::BufferUsage usage)
     {
+        using enum Flux::BufferUsage;
+
         VkBufferUsageFlags flags = 0;
 
-        if (static_cast<uint8_t>(usage & BufferUsage::Vertex))
+        if (HasFlag(usage, Vertex))
             flags |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        if (static_cast<uint8_t>(usage & BufferUsage::Index))
+
+        if (HasFlag(usage, Index))
             flags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        if (static_cast<uint8_t>(usage & BufferUsage::Uniform))
+
+        if (HasFlag(usage, Uniform))
             flags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-        if (static_cast<uint8_t>(usage & BufferUsage::Storage))
+
+        if (HasFlag(usage, Storage))
             flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-        if (static_cast<uint8_t>(usage & BufferUsage::Staging))
+
+        if (HasFlag(usage, Staging))
             flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-        if (static_cast<uint8_t>(usage & BufferUsage::Indirect))
+
+        if (HasFlag(usage, Indirect))
             flags |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
 
-        FL_CORE_ASSERT(flags != 0, "BufferUsage resulted in empty VkBufferUsageFlags!");
+        FL_CONSTEXPR_ASSERT(flags != 0, "BufferUsage resulted in empty VkBufferUsageFlags!");
+
         return flags;
     }
+
+} // anonymous namespace
+
+namespace Flux {
 
     VulkanBuffer::VulkanBuffer(VmaAllocator allocator, const BufferSpec& spec)
         : m_Spec(spec), m_Allocator(allocator)
