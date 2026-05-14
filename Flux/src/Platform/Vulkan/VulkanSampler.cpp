@@ -2,66 +2,96 @@
 #include "VulkanSampler.h"
 #include "VulkanCommon.h"
 
-namespace Flux {
+namespace {
 
-    static VkFilter GetVkFilter(FilterMode mode)
+    using Flux::FilterMode;
+    using Flux::MipMapMode;
+    using Flux::AddressMode;
+    using Flux::BorderColor;
+    using Flux::CompareOp;
+
+    constexpr VkFilter GetVkFilter(FilterMode mode)
     {
+        using enum FilterMode;
+
         switch (mode)
         {
-        case FilterMode::Nearest: return VK_FILTER_NEAREST;
-        case FilterMode::Linear:  return VK_FILTER_LINEAR;
+        case Nearest: return VK_FILTER_NEAREST;
+        case Linear:  return VK_FILTER_LINEAR;
         }
+
+        FL_CONSTEXPR_ASSERT(false, "Unknown FilterMode");
         return VK_FILTER_LINEAR;
     }
 
-    static VkSamplerMipmapMode GetVkMipMode(MipMapMode mode)
+    constexpr VkSamplerMipmapMode GetVkMipMode(MipMapMode mode)
     {
+        using enum MipMapMode;
+
         switch (mode)
         {
-        case MipMapMode::Nearest: return VK_SAMPLER_MIPMAP_MODE_NEAREST;
-        case MipMapMode::Linear:  return VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        case Nearest: return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        case Linear:  return VK_SAMPLER_MIPMAP_MODE_LINEAR;
         }
+
+        FL_CONSTEXPR_ASSERT(false, "Unknown MipMapMode");
         return VK_SAMPLER_MIPMAP_MODE_LINEAR;
     }
 
-    static VkSamplerAddressMode GetVkAddressMode(AddressMode mode)
+    constexpr VkSamplerAddressMode GetVkAddressMode(AddressMode mode)
     {
+        using enum AddressMode;
+
         switch (mode)
         {
-        case AddressMode::Repeat:         return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        case AddressMode::MirroredRepeat: return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-        case AddressMode::ClampToEdge:    return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        case AddressMode::ClampToBorder:  return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+        case Repeat:         return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        case MirroredRepeat: return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+        case ClampToEdge:    return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        case ClampToBorder:  return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
         }
+
+        FL_CONSTEXPR_ASSERT(false, "Unknown AddressMode");
         return VK_SAMPLER_ADDRESS_MODE_REPEAT;
     }
 
-    static VkBorderColor GetVkBorderColor(BorderColor color)
+    constexpr VkBorderColor GetVkBorderColor(BorderColor color)
     {
+        using enum BorderColor;
+
         switch (color)
         {
-        case BorderColor::TransparentBlack: return VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
-        case BorderColor::OpaqueBlack:      return VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
-        case BorderColor::OpaqueWhite:      return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+        case TransparentBlack: return VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+        case OpaqueBlack:      return VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+        case OpaqueWhite:      return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
         }
+
+        FL_CONSTEXPR_ASSERT(false, "Unknown BorderColor");
         return VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
     }
 
-    static VkCompareOp GetVkCompareOp(CompareOp op)
+    constexpr VkCompareOp GetVkCompareOp(CompareOp op)
     {
+        using enum CompareOp;
+
         switch (op)
         {
-        case CompareOp::Never:          return VK_COMPARE_OP_NEVER;
-        case CompareOp::Less:           return VK_COMPARE_OP_LESS;
-        case CompareOp::Equal:          return VK_COMPARE_OP_EQUAL;
-        case CompareOp::LessOrEqual:    return VK_COMPARE_OP_LESS_OR_EQUAL;
-        case CompareOp::Greater:        return VK_COMPARE_OP_GREATER;
-        case CompareOp::NotEqual:       return VK_COMPARE_OP_NOT_EQUAL;
-        case CompareOp::GreaterOrEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
-        case CompareOp::Always:         return VK_COMPARE_OP_ALWAYS;
+        case Never:          return VK_COMPARE_OP_NEVER;
+        case Less:           return VK_COMPARE_OP_LESS;
+        case Equal:          return VK_COMPARE_OP_EQUAL;
+        case LessOrEqual:    return VK_COMPARE_OP_LESS_OR_EQUAL;
+        case Greater:        return VK_COMPARE_OP_GREATER;
+        case NotEqual:       return VK_COMPARE_OP_NOT_EQUAL;
+        case GreaterOrEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
+        case Always:         return VK_COMPARE_OP_ALWAYS;
         }
+
+        FL_CONSTEXPR_ASSERT(false, "Unknown CompareOp");
         return VK_COMPARE_OP_ALWAYS;
     }
+
+} // anonymous namespace
+
+namespace Flux {
 
     VulkanSampler::VulkanSampler(VkDevice device, const SamplerSpec& spec)
         : m_Device(device), m_Spec(spec)
