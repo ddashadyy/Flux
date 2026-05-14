@@ -5,24 +5,20 @@
 #include "Flux/Events/KeyEvent.h"
 #include "Flux/Core/Input.h"
 #include "Flux/Core/KeyCodes.h"
+#include "Flux/ImGui/ImGuiLayer.h" 
+
+#include "Flux/Renderer/PrimitiveFactory.h"
+#include "Flux/Renderer/RayCaster.h"
 
 #include <imgui.h>
 #include <GLFW/glfw3.h>
+
 #include <glm/gtc/matrix_transform.hpp>
-#include <fstream>
+#include <glm/gtc/type_ptr.hpp>
+
+#include <filesystem>
 
 namespace Flux {
-
-    static std::vector<uint32_t> LoadSPIRV(const std::string& path)
-    {
-        std::ifstream file(path, std::ios::binary | std::ios::ate);
-        FL_CORE_ASSERT(file.is_open(), "Failed to open SPIRV: {0}", path);
-        size_t size = file.tellg();
-        std::vector<uint32_t> buffer(size / sizeof(uint32_t));
-        file.seekg(0);
-        file.read(reinterpret_cast<char*>(buffer.data()), size);
-        return buffer;
-    }
 
     EditorLayer::EditorLayer() : Layer("EditorLayer") {}
 
@@ -33,107 +29,74 @@ namespace Flux {
     void EditorLayer::OnAttach()
     {
         auto& app = Application::Get();
-        auto& device = app.GetDevice();
         auto& window = app.GetWindow();
 
-        // Камера — позиция и ротация из старого ExampleLayer
         float aspect = (float)window.GetWidth() / (float)window.GetHeight();
-        m_Camera = PerspectiveCamera(45.0f, aspect, 0.1f, 1000.0f);
-        m_Camera.SetPosition({ -8.29f, 2.35f, -8.96f });
-        m_Camera.SetRotation({ -12.5f, -307.0f, 0.0f });
 
-        // Рендерер
-        m_Renderer = CreateScope<Renderer>(device);
+        m_Camera = EditorCamera(45.0f, aspect, 0.1f, 1000.0f);
+        m_Camera.GetCamera().SetPosition({ -8.29f, 2.35f, -8.96f });
+        m_Camera.GetCamera().SetRotation({ -12.5f, -307.0f, 0.0f });
+        m_Camera.SetKeyCallback([this](int key) {
+            if (m_Camera.IsCursorLocked()) return;
+            if (key == FL_KEY_T) m_GizmoOperation = ImGuizmo::TRANSLATE;
+            if (key == FL_KEY_R) m_GizmoOperation = ImGuizmo::ROTATE;
+            if (key == FL_KEY_G) m_GizmoOperation = ImGuizmo::SCALE;
+            });
 
-        // 4 point light'а над фонарными столбами улицы
-        m_Renderer->AddPointLight({ glm::vec4(0.02f, 2.82f,  5.40f, 0.0f), glm::vec4(1.0f, 0.85f, 0.5f, 300.0f) });
-        m_Renderer->AddPointLight({ glm::vec4(0.11f, 2.82f,  2.13f, 0.0f), glm::vec4(1.0f, 0.85f, 0.5f, 300.0f) });
-        m_Renderer->AddPointLight({ glm::vec4(0.02f, 2.82f, -2.04f, 0.0f), glm::vec4(1.0f, 0.85f, 0.5f, 300.0f) });
-        m_Renderer->AddPointLight({ glm::vec4(-0.02f, 2.82f, -5.45f, 0.0f), glm::vec4(1.0f, 0.85f, 0.5f, 300.0f) });
+        m_SceneRenderer = CreateScope<SceneRenderer>();
+        m_SceneRenderer->Init(app.GetDevice());
 
-        // Дефолтный самплер
-        SamplerSpec samplerSpec{};
-        samplerSpec.MagFilter = FilterMode::Linear;
-        samplerSpec.MinFilter = FilterMode::Linear;
-        samplerSpec.AddressU = AddressMode::ClampToEdge;
-        samplerSpec.AddressV = AddressMode::ClampToEdge;
-        samplerSpec.DebugName = "DefaultSampler";
-        m_DefaultSampler = device.CreateSampler(samplerSpec);
-
-        // Сцена
         m_Scene = CreateRef<Scene>();
         m_ScenePanel.SetScene(m_Scene);
 
-        CreateDepthAndMsaa(window.GetWidth(), window.GetHeight());
-        CreateRenderPass();
-        CreateFramebuffers(window.GetWidth(), window.GetHeight());
-        CreatePipeline();
-        LoadScene();
+        m_ScenePanel.SetImportModelCallback([this](const std::string& path) {
+            auto& assetManager = Application::Get().GetAssetManager();
+            auto* texLayout = m_SceneRenderer->GetTextureDescriptorSetLayout();
 
-        SetCursorMode(true);
+            auto model = assetManager.LoadModel(path, texLayout);
+            if (!model) return;
+
+            const std::string name = std::filesystem::path(path).stem().string();
+            m_Scene->AddEntity(model, name);
+            });
+
+        LoadDefaultScene();
     }
 
     void EditorLayer::OnDetach()
     {
         Application::Get().GetDevice().WaitIdle();
+        PrimitiveFactory::Shutdown();
 
-        m_Framebuffers.clear();
-        m_Pipeline.reset();
-        m_RenderPass.reset();
-        m_DepthTexture.reset();
-        m_MsaaColorTexture.reset();
-        m_DefaultSampler.reset();
-        m_Renderer.reset();
+        m_SceneRenderer.reset();
         m_Scene.reset();
     }
 
     // =========================================================================
-    //  OnUpdate
+    //  OnUpdate (Рендер цикл)
     // =========================================================================
 
     void EditorLayer::OnUpdate(RHICommandList* cmdList, uint32_t imageIndex)
     {
-        auto& app = Application::Get();
-        auto& window = app.GetWindow();
-        auto& device = app.GetDevice();
-        auto* swapchain = device.GetSwapchain();
-
-        if (swapchain->NeedsResize())
+        if (m_ViewportNeedsResize)
         {
-            device.WaitIdle();
-            swapchain->Resize(window.GetWidth(), window.GetHeight());
-            RecreateSwapchainResources(window.GetWidth(), window.GetHeight());
-            return;
+            m_ViewportNeedsResize = false;
+            m_ViewportSize = m_PendingViewportSize;
+
+            if (m_ViewportSize.x > 0.0f && m_ViewportSize.y > 0.0f)
+            {
+                m_SceneRenderer->OnResize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
+                m_Camera.GetCamera().SetAspectRatio(m_ViewportSize.x / m_ViewportSize.y);
+            }
         }
 
         float currentTime = (float)glfwGetTime();
         float dt = currentTime - m_LastFrameTime;
         m_LastFrameTime = currentTime;
 
-        ProcessKeyboard(dt);
+        m_Camera.OnUpdate(dt);
 
-        float aspect = (float)window.GetWidth() / (float)window.GetHeight();
-        m_Camera.SetAspectRatio(aspect);
-
-        cmdList->BeginRenderPass(
-            m_RenderPass.get(),
-            m_Framebuffers[imageIndex].get(),
-            { 0.05f, 0.05f, 0.05f, 1.0f },
-            1.0f,
-            0
-        );
-
-        cmdList->SetViewport(0.0f, 0.0f, (float)window.GetWidth(), (float)window.GetHeight());
-        cmdList->SetScissor(0, 0, window.GetWidth(), window.GetHeight());
-
-        m_Renderer->BeginScene(*cmdList, *m_Pipeline, m_Camera);
-
-        for (auto& entity : m_Scene->GetEntities())
-            m_Renderer->Submit(entity);
-
-        m_Renderer->EndScene();
-
-        cmdList->EndRenderPass();
+        m_SceneRenderer->Render(cmdList, m_Scene, m_Camera.GetCamera());
     }
 
     // =========================================================================
@@ -142,9 +105,24 @@ namespace Flux {
 
     void EditorLayer::OnImGuiRender()
     {
+        ImGuizmo::BeginFrame();
+
         DrawDockspace();
+        DrawViewport();
         DrawStatsWindow();
         m_ScenePanel.OnImGuiRender();
+    }
+
+    void EditorLayer::OnEvent(Event& event)
+    {
+        m_Camera.OnEvent(event);
+    }
+
+    void EditorLayer::OnResize(uint32_t width, uint32_t height)
+    {
+        if (width == 0 || height == 0) return;
+        Application::Get().GetImGuiLayer()->CreateFramebuffers(width, height);
+        m_Camera.GetCamera().SetAspectRatio((float)width / (float)height);
     }
 
     void EditorLayer::DrawDockspace()
@@ -178,14 +156,13 @@ namespace Flux {
     {
         ImGui::Begin("Stats");
 
-        ImGui::Text("FPS: %.1f (%.2f ms)",
-            ImGui::GetIO().Framerate,
-            1000.0f / ImGui::GetIO().Framerate);
-
-        ImGui::Text("Camera: (%.2f, %.2f, %.2f)",
-            m_Camera.GetPosition().x,
-            m_Camera.GetPosition().y,
-            m_Camera.GetPosition().z);
+        ImGui::Text("FPS: %.1f (%.2f ms)", ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
+        ImGui::Text(
+            "Camera: (%.2f, %.2f, %.2f)",
+            m_Camera.GetCamera().GetPosition().x,
+            m_Camera.GetCamera().GetPosition().y,
+            m_Camera.GetCamera().GetPosition().z
+        );
 
         auto stats = Application::Get().GetDevice().GetMemoryStatistics();
         if (stats.Budget > 0)
@@ -198,314 +175,148 @@ namespace Flux {
             ImGui::ProgressBar(usagePct, ImVec2(-1, 0));
         }
 
-        ImGui::Text("Allocations: %u (%.1f MB)",
-            stats.AllocationCount,
-            stats.AllocationBytes / (1024.f * 1024.f));
-
+        ImGui::Text("Allocations: %u (%.1f MB)", stats.AllocationCount, stats.AllocationBytes / (1024.f * 1024.f));
         ImGui::End();
     }
 
-    // =========================================================================
-    //  Events
-    // =========================================================================
-
-    void EditorLayer::OnEvent(Event& event)
+    void EditorLayer::DrawViewport()
     {
-        EventDispatcher dispatcher(event);
-        dispatcher.Dispatch<MouseMovedEvent>(FL_BIND_EVENT_FN(EditorLayer::OnMouseMoved));
-        dispatcher.Dispatch<MouseScrolledEvent>(FL_BIND_EVENT_FN(EditorLayer::OnMouseScrolled));
-        dispatcher.Dispatch<KeyPressedEvent>(FL_BIND_EVENT_FN(EditorLayer::OnKeyPressed));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+        ImGui::Begin("Viewport");
+
+        m_ViewportFocused = ImGui::IsWindowFocused();
+        ImVec2 size = ImGui::GetContentRegionAvail();
+
+        uint32_t w = (uint32_t)size.x;
+        uint32_t h = (uint32_t)size.y;
+
+        if (w > 0 && h > 0 && (w != (uint32_t)m_ViewportSize.x || h != (uint32_t)m_ViewportSize.y))
+        {
+            m_PendingViewportSize = { (float)w, (float)h };
+            m_ViewportNeedsResize = true;
+        }
+
+        ImGui::Image(m_SceneRenderer->GetViewportTextureID(), size);
+
+        // --- Ray picking ---
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)
+            && ImGui::IsWindowHovered()
+            && !m_Camera.IsCursorLocked()
+            && !ImGuizmo::IsOver())
+        {
+            ImVec2 viewportPos = ImGui::GetWindowPos();
+            ImVec2 contentMin = ImGui::GetCursorStartPos();
+            ImVec2 mousePos = ImGui::GetMousePos();
+            ImVec2 vpSize = { m_ViewportSize.x, m_ViewportSize.y };
+
+            float mouseX = mousePos.x - (viewportPos.x + contentMin.x);
+            float mouseY = mousePos.y - (viewportPos.y + contentMin.y);
+
+            float ndcX = (mouseX / vpSize.x) * 2.0f - 1.0f;
+            float ndcY = 1.0f - (mouseY / vpSize.y) * 2.0f;
+
+            int picked = RayCaster::PickEntity(ndcX, ndcY, m_Camera.GetCamera(), *m_Scene);
+            if (picked >= 0)
+                m_ScenePanel.SetSelectedIndex(picked);
+            else
+                m_ScenePanel.SetSelectedIndex(-1);
+        }
+
+        // --- ImGuizmo ---
+        int selectedIndex = m_ScenePanel.GetSelectedIndex();
+        if (selectedIndex >= 0 && selectedIndex < (int)m_Scene->GetEntities().size()
+            && !m_Camera.IsCursorLocked())
+        {
+            ImGuizmo::SetOrthographic(false);
+            ImGuizmo::SetDrawlist();
+
+            ImVec2 vpPos = ImGui::GetWindowPos();
+            ImGuizmo::SetRect(vpPos.x, vpPos.y, m_ViewportSize.x, m_ViewportSize.y);
+
+            const glm::mat4& view = m_Camera.GetCamera().GetViewMatrix();
+            const glm::mat4& proj = m_Camera.GetCamera().GetProjectionMatrix();
+
+            Entity& entity = m_Scene->GetEntities()[selectedIndex];
+            Transform& t = entity.GetTransform();
+            glm::mat4 modelMat = t.GetMatrix();
+
+            ImGuizmo::Manipulate(
+                glm::value_ptr(view),
+                glm::value_ptr(proj),
+                m_GizmoOperation,
+                ImGuizmo::LOCAL,
+                glm::value_ptr(modelMat)
+            );
+
+            if (ImGuizmo::IsUsing())
+            {
+                glm::vec3 position, rotation, scale;
+                ImGuizmo::DecomposeMatrixToComponents(
+                    glm::value_ptr(modelMat),
+                    glm::value_ptr(position),
+                    glm::value_ptr(rotation),
+                    glm::value_ptr(scale)
+                );
+                t.Position = position;
+                t.Rotation = rotation;
+                t.Scale = scale;
+            }
+        }
+
+        ImGui::End();
+        ImGui::PopStyleVar();
     }
 
-    void EditorLayer::OnResize(uint32_t width, uint32_t height)
-    {
-        FL_CORE_WARN("OnResize: {}x{}", width, height);
-        Application::Get().GetDevice().WaitIdle();
-        RecreateSwapchainResources(width, height);
-    }
-
     // =========================================================================
-    //  Resource creation
+    //  Сцена
     // =========================================================================
 
     void EditorLayer::RecreateSwapchainResources(uint32_t width, uint32_t height)
     {
-        m_Framebuffers.clear();
-        m_DepthTexture.reset();
-        m_MsaaColorTexture.reset();
-
-        CreateDepthAndMsaa(width, height);
-        CreateFramebuffers(width, height);
-
-        m_Camera.SetAspectRatio((float)width / (float)height);
+        if (width == 0 || height == 0) return;
+        Application::Get().GetImGuiLayer()->CreateFramebuffers(width, height);
     }
 
-    void EditorLayer::CreateDepthAndMsaa(uint32_t width, uint32_t height)
+    void EditorLayer::LoadDefaultScene()
     {
-        auto& device = Application::Get().GetDevice();
-        auto* swapchain = device.GetSwapchain();
-        const bool msaa = (MSAA_SAMPLES != SampleCount::x1);
-
-        TextureSpec depthSpec{};
-        depthSpec.Width = width;
-        depthSpec.Height = height;
-        depthSpec.MipLevels = 1;
-        depthSpec.ImageFormat = Format::D32_SFLOAT;
-        depthSpec.Usage = TextureUsage::DepthStencil;
-        depthSpec.Samples = MSAA_SAMPLES;
-        depthSpec.DebugName = "DepthBuffer";
-        m_DepthTexture = device.CreateTexture(depthSpec);
-
-        if (msaa)
-        {
-            TextureSpec msaaSpec{};
-            msaaSpec.Width = width;
-            msaaSpec.Height = height;
-            msaaSpec.ImageFormat = swapchain->GetFormat();
-            msaaSpec.Usage = TextureUsage::RenderTarget;
-            msaaSpec.MipLevels = 1;
-            msaaSpec.Samples = MSAA_SAMPLES;
-            msaaSpec.DebugName = "MsaaColorBuffer";
-            m_MsaaColorTexture = device.CreateTexture(msaaSpec);
-        }
-    }
-
-    void EditorLayer::CreateRenderPass()
-    {
-        auto& device = Application::Get().GetDevice();
-        auto* swapchain = device.GetSwapchain();
-        const bool msaa = (MSAA_SAMPLES != SampleCount::x1);
-
-        RenderPassDesc desc{};
-        desc.ColorFormats = { swapchain->GetFormat() };
-        desc.HasDepth = true;
-        desc.DepthFormat = Format::D32_SFLOAT;
-        desc.Samples = MSAA_SAMPLES;
-
-        desc.ColorLoadOp = AttachmentLoadOp::Clear;
-        desc.ColorStoreOp = AttachmentStoreOp::Store;
-        desc.DepthLoadOp = AttachmentLoadOp::Clear;
-        desc.DepthStoreOp = AttachmentStoreOp::DontCare;
-
-        desc.ColorInitialLayout = ImageLayout::Undefined;
-        desc.ColorFinalLayout = ImageLayout::ColorAttachment;
-        desc.DepthInitialLayout = ImageLayout::Undefined;
-        desc.DepthFinalLayout = ImageLayout::DepthStencilAttachment;
-
-        if (msaa)
-        {
-            desc.HasResolve = true;
-            desc.ResolveInitialLayout = ImageLayout::Undefined;
-            desc.ResolveFinalLayout = ImageLayout::ColorAttachment;
-        }
-        else
-        {
-            desc.ColorFinalLayout = ImageLayout::ColorAttachment;
-        }
-
-        m_RenderPass = device.CreateRenderPass(desc);
-    }
-
-    void EditorLayer::CreateFramebuffers(uint32_t width, uint32_t height)
-    {
-        auto& device = Application::Get().GetDevice();
-        auto* swapchain = device.GetSwapchain();
-        const bool msaa = (MSAA_SAMPLES != SampleCount::x1);
-        uint32_t count = swapchain->GetImageCount();
-
-        m_Framebuffers.resize(count);
-        for (uint32_t i = 0; i < count; i++)
-        {
-            FramebufferSpec spec{};
-            spec.RenderPass = m_RenderPass.get();
-            spec.Width = width;
-            spec.Height = height;
-
-            if (msaa)
-            {
-                spec.ColorTargets = { m_MsaaColorTexture.get() };
-                spec.DepthTarget = m_DepthTexture.get();
-                spec.ResolveTarget = swapchain->GetColorTarget(i);
-            }
-            else
-            {
-                spec.ColorTargets = { swapchain->GetColorTarget(i) };
-                spec.DepthTarget = m_DepthTexture.get();
-            }
-
-            m_Framebuffers[i] = device.CreateFramebuffer(spec);
-        }
-    }
-
-    void EditorLayer::CreatePipeline()
-    {
+        auto* texLayout = m_SceneRenderer->GetTextureDescriptorSetLayout();
         auto& device = Application::Get().GetDevice();
 
-        auto vertSpv = LoadSPIRV("C:/dev/Flux/SandBox/assets/shaders/shader.vert.spv");
-        auto fragSpv = LoadSPIRV("C:/dev/Flux/SandBox/assets/shaders/shader.frag.spv");
-        m_VertShader = device.CreateShader(ShaderStage::Vertex, vertSpv);
-        m_FragShader = device.CreateShader(ShaderStage::Fragment, fragSpv);
+        auto floor = PrimitiveFactory::CreatePlane(device, texLayout, 20.0f, 4);
+        auto& floorEntity = m_Scene->AddEntity(floor, "Floor");
+        floorEntity.GetTransform().Position = { 0.0f, -0.5f, 0.0f };
 
-        BufferLayout vertexLayout = {
-            { ShaderDataType::Float3 }, // Position
-            { ShaderDataType::Float3 }, // Normal
-            { ShaderDataType::Float2 }, // TexCoord
-            { ShaderDataType::Float3 }, // Tangent
-        };
+        auto cube = PrimitiveFactory::CreateCube(device, texLayout);
+        auto& cubeEntity = m_Scene->AddEntity(cube, "Cube");
+        cubeEntity.GetTransform().Position = { 0.0f, 0.0f, 0.0f };
 
-        FL_CORE_WARN("Size of Vertex in C++: {}", sizeof(Vertex));
-        FL_CORE_WARN("Size of Vertex in Pipeline: {}", vertexLayout.GetStride());
+        // =====================================================================
+        // Light
+        // =====================================================================
 
-        PipelineDesc desc{};
-        desc.VertexShader = m_VertShader.get();
-        desc.FragmentShader = m_FragShader.get();
-        desc.VertexLayout = vertexLayout;
-        desc.RenderPass = m_RenderPass.get();
-        desc.Topology = PrimitiveTopology::TriangleList;
-        desc.Samples = MSAA_SAMPLES;
+        auto& light1 = m_Scene->AddEntity(nullptr, "Point Light 1");
+        light1.GetTransform().Position = { 0.02f, 2.82f, 5.40f };
+        light1.AddLight();
+        light1.GetLight().Color = { 1.0f, 0.85f, 0.5f };
+        light1.GetLight().Intensity = 300.0f;
 
-        desc.PushConstants.Stage = ShaderStage::Vertex | ShaderStage::Fragment;
-        desc.PushConstants.Offset = 0;
-        desc.PushConstants.Size = sizeof(PushConstantData);
+        auto& light2 = m_Scene->AddEntity(nullptr, "Point Light 2");
+        light2.GetTransform().Position = { 0.11f, 2.82f, 2.13f };
+        light2.AddLight();
+        light2.GetLight().Color = { 1.0f, 0.85f, 0.5f };
+        light2.GetLight().Intensity = 300.0f;
 
-        FL_CORE_WARN("PushConstantData size: {} bytes", sizeof(PushConstantData));
+        auto& light3 = m_Scene->AddEntity(nullptr, "Point Light 3");
+        light3.GetTransform().Position = { 0.02f, 2.82f, -2.04f };
+        light3.AddLight();
+        light3.GetLight().Color = { 1.0f, 0.85f, 0.5f };
+        light3.GetLight().Intensity = 300.0f;
 
-        desc.DescriptorSetLayouts = {
-            m_Renderer->GetGlobalDescriptorSetLayout(),
-            m_Renderer->GetTextureDescriptorSetLayout()
-        };
-
-        desc.DepthStencil.DepthTest = true;
-        desc.DepthStencil.DepthWrite = true;
-        desc.DepthStencil.DepthCompare = CompareOp::Less;
-
-        desc.Rasterizer.Cull = CullMode::None;
-        desc.Rasterizer.Fill = FillMode::Solid;
-        desc.Rasterizer.Front = FrontFace::Clockwise;
-
-        desc.Blend = BlendPreset::Opaque();
-        desc.DebugName = "ScenePipeline";
-
-        m_Pipeline = device.CreatePipeline(desc);
-    }
-
-    void EditorLayer::LoadScene()
-    {
-        auto& assetManager = Application::Get().GetAssetManager();
-        auto* texLayout = m_Renderer->GetTextureDescriptorSetLayout();
-
-        // --- Батмобиль ---
-        auto batmobile = assetManager.LoadModel(
-            "C:\\dev\\Flux\\SandBox\\assets\\models\\batmobile\\arkham_knight_batmobile_advanced_rig.obj",
-            texLayout
-        );
-        if (batmobile)
-        {
-            for (auto& subMesh : batmobile->Meshes)
-            {
-                subMesh.Mat.Color = { 0.8f, 0.8f, 0.8f, 1.0f };
-                subMesh.Mat.RoughnessOverride = 0.2f;
-                subMesh.Mat.MetallicOverride = 0.38f;
-            }
-        }
-        auto& batmobileEntity = m_Scene->AddEntity(batmobile, "Batmobile");
-        batmobileEntity.GetTransform().Position = { -6.0f, -0.5f, -4.5f };
-        batmobileEntity.GetTransform().Scale = { 0.25f, 0.25f, 0.25f };
-
-        // --- Улица ---
-        auto street = assetManager.LoadModel(
-            "C:\\dev\\Flux\\SandBox\\assets\\models\\street\\dark_street_scene.obj",
-            texLayout
-        );
-        if (street)
-        {
-            for (auto& subMesh : street->Meshes)
-                subMesh.Mat.Color = { 0.0f, 0.0f, 0.0f, 1.0f };
-        }
-        m_Scene->AddEntity(street, "Street");
-    }
-
-    // =========================================================================
-    //  Camera controller
-    // =========================================================================
-
-    void EditorLayer::ProcessKeyboard(float dt)
-    {
-        if (!m_CursorLocked) return;
-
-        float speed = m_CameraSpeed * dt;
-        glm::vec3 move(0.0f);
-
-        if (Input::IsKeyPressed(FL_KEY_W))           move.z += 1.0f;
-        if (Input::IsKeyPressed(FL_KEY_S))           move.z -= 1.0f;
-        if (Input::IsKeyPressed(FL_KEY_A))           move.x -= 1.0f;
-        if (Input::IsKeyPressed(FL_KEY_D))           move.x += 1.0f;
-        if (Input::IsKeyPressed(FL_KEY_SPACE))       move.y += 1.0f;
-        if (Input::IsKeyPressed(FL_KEY_LEFT_SHIFT))  move.y -= 1.0f;
-
-        if (glm::length(move) > 0.0f)
-            move = glm::normalize(move);
-
-        glm::vec3 pos = m_Camera.GetPosition();
-        pos += m_Camera.GetForward() * move.z * speed;
-        pos += m_Camera.GetRight() * move.x * speed;
-        pos += glm::vec3(0, 1, 0) * move.y * speed;
-        m_Camera.SetPosition(pos);
-    }
-
-    bool EditorLayer::OnMouseMoved(MouseMovedEvent& e)
-    {
-        if (!m_CursorLocked) return false;
-
-        if (m_FirstMouse)
-        {
-            m_LastX = e.GetX(); m_LastY = e.GetY();
-            m_FirstMouse = false;
-            return false;
-        }
-
-        float xOff = (e.GetX() - m_LastX) * m_MouseSensitivity;
-        float yOff = (m_LastY - e.GetY()) * m_MouseSensitivity;
-        m_LastX = e.GetX();
-        m_LastY = e.GetY();
-
-        glm::vec3 rot = m_Camera.GetRotation();
-        rot.y += xOff;
-        rot.x = glm::clamp(rot.x + yOff, -89.0f, 89.0f);
-        m_Camera.SetRotation(rot);
-        return false;
-    }
-
-    bool EditorLayer::OnMouseScrolled(MouseScrolledEvent& e)
-    {
-        m_Camera.SetFOV(glm::clamp(m_Camera.GetFOV() - e.GetYOffset(), 1.0f, 90.0f));
-        return false;
-    }
-
-    bool EditorLayer::OnKeyPressed(KeyPressedEvent& e)
-    {
-        if (e.GetKeyCode() == FL_KEY_ESCAPE)
-        {
-            m_CursorLocked = !m_CursorLocked;
-            SetCursorMode(m_CursorLocked);
-        }
-        return false;
-    }
-
-    void EditorLayer::SetCursorMode(bool locked)
-    {
-        GLFWwindow* w = static_cast<GLFWwindow*>(
-            Application::Get().GetWindow().GetNativeWindow());
-
-        if (locked)
-        {
-            glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            m_FirstMouse = true;
-        }
-        else
-        {
-            glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        }
+        auto& light4 = m_Scene->AddEntity(nullptr, "Point Light 4");
+        light4.GetTransform().Position = { -0.02f, 2.82f, -5.45f };
+        light4.AddLight();
+        light4.GetLight().Color = { 1.0f, 0.85f, 0.5f };
+        light4.GetLight().Intensity = 300.0f;
     }
 
 } // namespace Flux

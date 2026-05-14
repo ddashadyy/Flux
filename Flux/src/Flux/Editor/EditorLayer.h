@@ -7,16 +7,13 @@
 
 #include "Flux/Scene/Scene.h"
 #include "Flux/Scene/Entity.h"
-#include "Flux/Editor/ScenePanel.h"
+#include "Flux/Scene/ScenePanel.h"
 
-#include "Flux/Renderer/Renderer.h"
-#include "Flux/Renderer/RHICommandList.h"
-#include "Flux/Renderer/RHIPipeline.h"
-#include "Flux/Renderer/RHIRenderPass.h"
-#include "Flux/Renderer/RHIFramebuffer.h"
-#include "Flux/Renderer/RHIShader.h"
-#include "Flux/Renderer/RHITexture.h"
-#include "Flux/Renderer/PerspectiveCamera.h"
+#include "Flux/Scene/SceneRenderer.h"
+#include "Flux/Renderer/EditorCamera.h"
+
+#include <imgui.h>
+#include <ImGuizmo.h>
 
 namespace Flux {
 
@@ -35,56 +32,29 @@ namespace Flux {
 
     private:
         void RecreateSwapchainResources(uint32_t width, uint32_t height);
-        void CreateDepthAndMsaa(uint32_t width, uint32_t height);
-        void CreateRenderPass();
-        void CreateFramebuffers(uint32_t width, uint32_t height);
-        void CreatePipeline();
-        void LoadScene();
-
-        void ProcessKeyboard(float dt);
-        bool OnMouseMoved(MouseMovedEvent& e);
-        bool OnMouseScrolled(MouseScrolledEvent& e);
-        bool OnKeyPressed(KeyPressedEvent& e);
-        void SetCursorMode(bool locked);
+        void LoadDefaultScene();
 
         void DrawDockspace();
         void DrawStatsWindow();
         void DrawViewport();
 
     private:
-        static constexpr SampleCount MSAA_SAMPLES = SampleCount::x8;
+        Ref<Scene>   m_Scene;
+        ScenePanel   m_ScenePanel;
 
-        // Сцена
-        Ref<Scene>  m_Scene;
-        ScenePanel  m_ScenePanel;
+        Scope<SceneRenderer> m_SceneRenderer;
 
-        // Рендерер
-        Scope<Renderer> m_Renderer;
+        EditorCamera m_Camera;
 
-        // Камера и свет
-        PerspectiveCamera m_Camera;
+        glm::vec2 m_ViewportSize = { 1280.0f, 720.0f };
+        bool      m_ViewportFocused = false;
 
-        // Shaders & pipeline
-        Scope<RHIShader>   m_VertShader;
-        Scope<RHIShader>   m_FragShader;
-        Scope<RHIPipeline> m_Pipeline;
+        glm::vec2 m_PendingViewportSize = { 0.0f, 0.0f };
+        bool      m_ViewportNeedsResize = false;
 
-        // Render pass + attachments
-        Scope<RHITexture>                  m_DepthTexture;
-        Scope<RHITexture>                  m_MsaaColorTexture;
-        Scope<RHIRenderPass>               m_RenderPass;
-        std::vector<Scope<RHIFramebuffer>> m_Framebuffers;
+        ImGuizmo::OPERATION m_GizmoOperation = ImGuizmo::TRANSLATE;
 
-        // Sampler для ImGui texture preview (если понадобится)
-        Scope<RHISampler> m_DefaultSampler;
-
-        // Camera controller state
-        float m_CameraSpeed = 5.0f;
-        float m_MouseSensitivity = 0.1f;
         float m_LastFrameTime = 0.0f;
-        float m_LastX = 0.0f, m_LastY = 0.0f;
-        bool  m_FirstMouse = true;
-        bool  m_CursorLocked = true;
     };
 
 } // namespace Flux
