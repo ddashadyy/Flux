@@ -78,7 +78,15 @@ vec3 CalcLight(vec3 N, vec3 V, vec3 L, vec3 lightColor, float intensity,
 }
 
 void main() {
-    vec3 albedo = pow(texture(albedoMap, fragTexCoord).rgb, vec3(2.2)) * pc.color.rgb;
+    // vec3 albedo = pow(texture(albedoMap, fragTexCoord).rgb, vec3(2.2)) * pc.color.rgb;
+
+    vec4 albedoSample = texture(albedoMap, fragTexCoord);
+    
+    // Alpha cutout — отбрасываем прозрачные пиксели (брови, волосы, борода)
+    if (albedoSample.a < 0.5)
+        discard;
+
+    vec3 albedo = pow(albedoSample.rgb, vec3(2.2)) * pc.color.rgb;
 
     vec3 normalSample = texture(normalMap, fragTexCoord).rgb * 2.0 - 1.0;
 
