@@ -7,6 +7,7 @@
 #include <filesystem>
 
 #include <tiny_obj_loader.h>
+#include <tiny_gltf.h>
 
 namespace Flux {
 
@@ -38,6 +39,10 @@ namespace Flux {
         ParsedMeshData ParseObj(const std::filesystem::path& path);
         void CalculateTangents(std::vector<Vertex>& vertices, const std::map<int, std::vector<uint32_t>>& indicesMap);
         void LoadMaterialTextures(Material& mat, const tinyobj::material_t& objMat, const std::filesystem::path& baseDir);
+
+    private:
+        Ref<Model> LoadGltfFromFile(const std::filesystem::path& path, RHIDescriptorSetLayout* textureLayout);
+        Ref<Texture> LoadGltfTexture(const tinygltf::Model& gltfModel, int textureIndex);
 
     private:
         RHIDevice& m_Device;

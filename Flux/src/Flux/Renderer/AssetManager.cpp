@@ -4,6 +4,14 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+#define TINYGLTF_IMPLEMENTATION
+#define TINYGLTF_NO_STB_IMAGE
+#define TINYGLTF_NO_STB_IMAGE_WRITE
+#define TINYGLTF_NO_INCLUDE_JSON
+#define TINYGLTF_NO_INCLUDE_STB_IMAGE
+#define TINYGLTF_NO_INCLUDE_STB_IMAGE_WRITE
+#include <nlohmann/json.hpp>
+#include <tiny_gltf.h>
 
 namespace {
     struct VertexHasher
@@ -24,6 +32,35 @@ namespace {
         }
     };
 }
+
+namespace tinygltf {
+    bool LoadImageData(Image* image, const int imageIndex, std::string* err,
+        std::string* warn, int reqWidth, int reqHeight,
+        const unsigned char* bytes, int size, void* userData)
+    {
+        int w, h, comp;
+        unsigned char* data = stbi_load_from_memory(bytes, size, &w, &h, &comp, 4);
+        if (!data) { if (err) *err = stbi_failure_reason(); return false; }
+        image->width = w;
+        image->height = h;
+        image->component = 4;
+        image->bits = 8;
+        image->pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE;
+        image->image.resize(w * h * 4);
+        memcpy(image->image.data(), data, w * h * 4);
+        stbi_image_free(data);
+        return true;
+    }
+
+    bool WriteImageData(const std::string*, const std::string*,
+        const Image*, bool,
+        const FsCallbacks*, const URICallbacks*,
+        std::string*, void*)
+    {
+        return false;
+    }
+}
+
 
 namespace Flux {
 
@@ -46,10 +83,13 @@ namespace Flux {
     {
         auto Create1x1Texture = [this](const uint8_t pixel[4]) -> Ref<Texture> {
             TextureSpec spec{};
-            spec.Width = 1; spec.Height = 1; spec.Depth = 1;
+            spec.Width = 1;
+            spec.Height = 1;
+            spec.Depth = 1;
             spec.MipLevels = 1;
+            spec.GenerateMipmaps = false;
             spec.ImageFormat = Format::R8G8B8A8_UNORM;
-            spec.Usage = TextureUsage::Sampled;
+            spec.Usage = TextureUsage::Sampled | TextureUsage::TransferDst;
             spec.Type = TextureType::Texture2D;
 
             auto tex = m_Device.CreateTexture(spec);
@@ -112,7 +152,7 @@ namespace Flux {
         if (!tinyobj::LoadObj(&attrib, &shapes, &result.Materials, &warn, &err, path.string().c_str(), result.BasePath.string().c_str()))
         {
             FL_CORE_ERROR("Failed to load OBJ: {0}\nError: {1}", path.string(), err);
-            return result; // Вернет пустые данные
+            return result;
         }
 
         std::unordered_map<Vertex, uint32_t, VertexHasher> uniqueVertices;
@@ -126,14 +166,24 @@ namespace Flux {
                 int materialId = (faceIndex < shape.mesh.material_ids.size()) ? shape.mesh.material_ids[faceIndex] : -1;
 
                 Vertex vertex{};
-                if (index.vertex_index >= 0) vertex.Position = { attrib.vertices[3 * index.vertex_index + 0], attrib.vertices[3 * index.vertex_index + 1], attrib.vertices[3 * index.vertex_index + 2] };
+                if (index.vertex_index >= 0)
+                    vertex.Position = {
+                        attrib.vertices[3 * index.vertex_index + 0],
+                        attrib.vertices[3 * index.vertex_index + 1],
+                        attrib.vertices[3 * index.vertex_index + 2]
+                };
 
                 vertex.Normal = (index.normal_index >= 0)
-                    ? glm::vec3{ attrib.normals[3 * index.normal_index + 0], attrib.normals[3 * index.normal_index + 1], attrib.normals[3 * index.normal_index + 2] }
+                    ? glm::vec3{
+                        attrib.normals[3 * index.normal_index + 0],
+                        attrib.normals[3 * index.normal_index + 1],
+                        attrib.normals[3 * index.normal_index + 2] }
                 : glm::vec3{ 0.f, 1.f, 0.f };
 
                 vertex.TexCoord = (index.texcoord_index >= 0)
-                    ? glm::vec2{ attrib.texcoords[2 * index.texcoord_index + 0], 1.0f - attrib.texcoords[2 * index.texcoord_index + 1] }
+                    ? glm::vec2{
+                        attrib.texcoords[2 * index.texcoord_index + 0],
+                        1.0f - attrib.texcoords[2 * index.texcoord_index + 1] }
                 : glm::vec2{ 0.f, 0.f };
 
                 if (uniqueVertices.count(vertex) == 0)
@@ -204,7 +254,6 @@ namespace Flux {
 
         mat.Albedo = TryLoad(objMat.diffuse_texname);
 
-        // Логика поиска нормалей (от конкретного к общему)
         std::string normalName = objMat.normal_texname;
         if (normalName.empty()) normalName = objMat.bump_texname;
         if (normalName.empty()) {
@@ -215,10 +264,211 @@ namespace Flux {
 
         mat.RoughnessMetallic = TryLoad(objMat.roughness_texname);
 
-        // Fallback на дефолтные текстуры (через тернарный оператор компактнее)
         mat.Albedo = mat.Albedo ? mat.Albedo : m_DefaultWhiteTexture;
         mat.Normal = mat.Normal ? mat.Normal : m_DefaultNormalTexture;
         mat.RoughnessMetallic = mat.RoughnessMetallic ? mat.RoughnessMetallic : m_DefaultWhiteTexture;
+    }
+
+    Ref<Model> AssetManager::LoadGltfFromFile(const std::filesystem::path& path, RHIDescriptorSetLayout* textureLayout)
+    {
+        tinygltf::Model gltfModel;
+        tinygltf::TinyGLTF loader;
+        std::string err, warn;
+
+        bool ok = path.extension() == ".glb"
+            ? loader.LoadBinaryFromFile(&gltfModel, &err, &warn, path.string())
+            : loader.LoadASCIIFromFile(&gltfModel, &err, &warn, path.string());
+
+        if (!warn.empty()) FL_CORE_WARN("glTF: {0}", warn);
+        if (!ok) { FL_CORE_ERROR("Failed to load glTF: {0} | {1}", path.string(), err); return nullptr; }
+
+        auto model = CreateRef<Model>();
+        std::vector<Vertex> allVertices;
+
+        for (const auto& mesh : gltfModel.meshes)
+        {
+            for (const auto& primitive : mesh.primitives)
+            {
+                if (primitive.mode != TINYGLTF_MODE_TRIANGLES) continue;
+
+                std::vector<Vertex> vertices;
+                std::vector<uint32_t> indices;
+
+                // --- Позиции ---
+                {
+                    const auto& acc = gltfModel.accessors[primitive.attributes.at("POSITION")];
+                    const auto& bv = gltfModel.bufferViews[acc.bufferView];
+                    const auto& buf = gltfModel.buffers[bv.buffer];
+                    const float* data = reinterpret_cast<const float*>(
+                        buf.data.data() + bv.byteOffset + acc.byteOffset);
+                    vertices.resize(acc.count);
+                    for (size_t i = 0; i < acc.count; i++)
+                        vertices[i].Position = { data[i * 3], data[i * 3 + 1], data[i * 3 + 2] };
+                }
+
+                // --- Нормали ---
+                if (primitive.attributes.count("NORMAL"))
+                {
+                    const auto& acc = gltfModel.accessors[primitive.attributes.at("NORMAL")];
+                    const auto& bv = gltfModel.bufferViews[acc.bufferView];
+                    const auto& buf = gltfModel.buffers[bv.buffer];
+                    const float* data = reinterpret_cast<const float*>(
+                        buf.data.data() + bv.byteOffset + acc.byteOffset);
+                    for (size_t i = 0; i < acc.count; i++)
+                        vertices[i].Normal = { data[i * 3], data[i * 3 + 1], data[i * 3 + 2] };
+                }
+
+                // --- UV ---
+                if (primitive.attributes.count("TEXCOORD_0"))
+                {
+                    const auto& acc = gltfModel.accessors[primitive.attributes.at("TEXCOORD_0")];
+                    const auto& bv = gltfModel.bufferViews[acc.bufferView];
+                    const auto& buf = gltfModel.buffers[bv.buffer];
+                    const float* data = reinterpret_cast<const float*>(
+                        buf.data.data() + bv.byteOffset + acc.byteOffset);
+                    for (size_t i = 0; i < acc.count; i++)
+                        vertices[i].TexCoord = { data[i * 2], data[i * 2 + 1] };
+                }
+
+                // --- Тангенты ---
+                if (primitive.attributes.count("TANGENT"))
+                {
+                    const auto& acc = gltfModel.accessors[primitive.attributes.at("TANGENT")];
+                    const auto& bv = gltfModel.bufferViews[acc.bufferView];
+                    const auto& buf = gltfModel.buffers[bv.buffer];
+                    const float* data = reinterpret_cast<const float*>(
+                        buf.data.data() + bv.byteOffset + acc.byteOffset);
+                    for (size_t i = 0; i < acc.count; i++)
+                        vertices[i].Tangent = { data[i * 4], data[i * 4 + 1], data[i * 4 + 2] };
+                }
+
+                // --- Индексы ---
+                {
+                    const auto& acc = gltfModel.accessors[primitive.indices];
+                    const auto& bv = gltfModel.bufferViews[acc.bufferView];
+                    const auto& buf = gltfModel.buffers[bv.buffer];
+                    const uint8_t* raw = buf.data.data() + bv.byteOffset + acc.byteOffset;
+
+                    indices.resize(acc.count);
+                    if (acc.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+                    {
+                        const uint16_t* src = reinterpret_cast<const uint16_t*>(raw);
+                        for (size_t i = 0; i < acc.count; i++) indices[i] = src[i];
+                    }
+                    else if (acc.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
+                    {
+                        const uint32_t* src = reinterpret_cast<const uint32_t*>(raw);
+                        for (size_t i = 0; i < acc.count; i++) indices[i] = src[i];
+                    }
+                }
+
+                // AABB
+                for (const auto& v : vertices)
+                {
+                    model->Bounds.Min = glm::min(model->Bounds.Min, v.Position);
+                    model->Bounds.Max = glm::max(model->Bounds.Max, v.Position);
+                }
+
+                bool hasTangents = primitive.attributes.count("TANGENT") > 0;
+                if (!hasTangents)
+                {
+                    std::map<int, std::vector<uint32_t>> tmp = { { 0, indices } };
+                    CalculateTangents(vertices, tmp);
+                }
+
+                uint32_t vertexOffset = (uint32_t)allVertices.size();
+                for (auto& idx : indices) idx += vertexOffset;
+                allVertices.insert(allVertices.end(), vertices.begin(), vertices.end());
+
+                // --- SubMesh ---
+                SubMesh subMesh{};
+                subMesh.IndexCount = (uint32_t)indices.size();
+
+                uint64_t ibSize = indices.size() * sizeof(uint32_t);
+                BufferSpec ibStage{}; ibStage.Size = ibSize;
+                ibStage.Usage = BufferUsage::Staging; ibStage.CpuVisible = true;
+                auto ibstaging = m_Device.CreateBuffer(ibStage);
+                ibstaging->SetData(indices.data(), ibSize);
+
+                BufferSpec ibSpec{}; ibSpec.Size = ibSize;
+                ibSpec.Usage = BufferUsage::Index; ibSpec.CpuVisible = false;
+                subMesh.IndexBuffer = m_Device.CreateBuffer(ibSpec);
+                m_Device.CopyBuffer(ibstaging.get(), subMesh.IndexBuffer.get(), ibSize);
+
+                // --- Материал ---
+                subMesh.Mat.Albedo = m_DefaultWhiteTexture;
+                subMesh.Mat.Normal = m_DefaultNormalTexture;
+                subMesh.Mat.RoughnessMetallic = m_DefaultWhiteTexture;
+
+                if (primitive.material >= 0)
+                {
+                    const auto& mat = gltfModel.materials[primitive.material];
+                    const auto& pbr = mat.pbrMetallicRoughness;
+
+                    if (pbr.baseColorTexture.index >= 0)
+                        subMesh.Mat.Albedo = LoadGltfTexture(gltfModel, pbr.baseColorTexture.index);
+                    if (mat.normalTexture.index >= 0)
+                        subMesh.Mat.Normal = LoadGltfTexture(gltfModel, mat.normalTexture.index);
+                    if (pbr.metallicRoughnessTexture.index >= 0)
+                        subMesh.Mat.RoughnessMetallic = LoadGltfTexture(gltfModel, pbr.metallicRoughnessTexture.index);
+
+                    const auto& c = pbr.baseColorFactor;
+                    subMesh.Mat.Color = { (float)c[0], (float)c[1], (float)c[2], (float)c[3] };
+                    subMesh.Mat.RoughnessOverride = (float)pbr.roughnessFactor;
+                    subMesh.Mat.MetallicOverride = (float)pbr.metallicFactor;
+                }
+
+                subMesh.Mat.DescriptorSet = m_Device.CreateDescriptorSet(textureLayout);
+                subMesh.Mat.DescriptorSet->BindTexture(ALBEDO_SLOT, subMesh.Mat.Albedo.get(), m_DefaultSampler.get());
+                subMesh.Mat.DescriptorSet->BindTexture(NORMAL_SLOT, subMesh.Mat.Normal.get(), m_DefaultSampler.get());
+                subMesh.Mat.DescriptorSet->BindTexture(ROUGH_METAL_SLOT, subMesh.Mat.RoughnessMetallic.get(), m_DefaultSampler.get());
+                subMesh.Mat.DescriptorSet->Update();
+
+                model->Meshes.push_back(std::move(subMesh));
+            }
+        }
+
+        uint64_t vbSize = allVertices.size() * sizeof(Vertex);
+        BufferSpec vbStage{}; vbStage.Size = vbSize;
+        vbStage.Usage = BufferUsage::Staging; vbStage.CpuVisible = true;
+        auto vbstaging = m_Device.CreateBuffer(vbStage);
+        vbstaging->SetData(allVertices.data(), vbSize);
+
+        BufferSpec vbSpec{}; vbSpec.Size = vbSize;
+        vbSpec.Usage = BufferUsage::Vertex; vbSpec.CpuVisible = false;
+        model->VertexBuffer = m_Device.CreateBuffer(vbSpec);
+        m_Device.CopyBuffer(vbstaging.get(), model->VertexBuffer.get(), vbSize);
+
+        FL_CORE_INFO("Loaded glTF: {0} | Vertices: {1} | SubMeshes: {2}",
+            path.string(), allVertices.size(), model->Meshes.size());
+        return model;
+    }
+
+    Ref<Texture> AssetManager::LoadGltfTexture(const tinygltf::Model& gltfModel, int textureIndex)
+    {
+        const auto& tex = gltfModel.textures[textureIndex];
+        const auto& image = gltfModel.images[tex.source];
+
+        if (!image.image.empty())
+        {
+            TextureSpec spec{};
+            spec.Width = image.width;
+            spec.Height = image.height;
+            spec.Depth = 1;
+            spec.MipLevels = 1;
+            spec.GenerateMipmaps = true;
+            spec.ImageFormat = Format::R8G8B8A8_UNORM;
+            spec.Usage = TextureUsage::Sampled;
+
+            auto texture = m_Device.CreateTexture(spec);
+            texture->SetData(image.image.data(), image.image.size());
+            return texture;
+        }
+
+        if (!image.uri.empty())
+            return LoadTexture(image.uri);
+
+        return m_DefaultWhiteTexture;
     }
 
     // ==========================================
@@ -226,16 +476,26 @@ namespace Flux {
     // ==========================================
     Ref<Model> AssetManager::LoadModelFromFile(const std::filesystem::path& path, RHIDescriptorSetLayout* textureLayout)
     {
+        std::string ext = path.extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+        if (ext == ".gltf" || ext == ".glb")
+            return LoadGltfFromFile(path, textureLayout);
+
+        // --- OBJ ---
         auto model = CreateRef<Model>();
 
-        // 1. Парсинг
         ParsedMeshData parsedData = ParseObj(path);
         if (parsedData.Vertices.empty()) return nullptr;
 
-        // 2. Математика
         CalculateTangents(parsedData.Vertices, parsedData.MaterialIndicesMap);
 
-        // 3. Создание общего VBO (ИСПРАВЛЕНИЕ БАГА)
+        for (const auto& v : parsedData.Vertices)
+        {
+            model->Bounds.Min = glm::min(model->Bounds.Min, v.Position);
+            model->Bounds.Max = glm::max(model->Bounds.Max, v.Position);
+        }
+
         size_t vertexBufferSize = parsedData.Vertices.size() * sizeof(Vertex);
 
         BufferSpec vboStagingSpec{};
@@ -249,19 +509,14 @@ namespace Flux {
         vboSpec.Size = vertexBufferSize;
         vboSpec.Usage = BufferUsage::Vertex;
         vboSpec.CpuVisible = false;
-
-        
         model->VertexBuffer = m_Device.CreateBuffer(vboSpec);
         m_Device.CopyBuffer(vboStaging.get(), model->VertexBuffer.get(), vertexBufferSize);
 
-
-        // 4. Создание сабмэшей (IBO) и материалов
         for (const auto& [matId, indices] : parsedData.MaterialIndicesMap)
         {
             SubMesh subMesh{};
             subMesh.IndexCount = static_cast<uint32_t>(indices.size());
 
-            // --- ИНДЕКСНЫЙ БУФЕР ---
             size_t indexBufferSize = indices.size() * sizeof(uint32_t);
 
             BufferSpec iboStagingSpec{};
@@ -278,13 +533,11 @@ namespace Flux {
             subMesh.IndexBuffer = m_Device.CreateBuffer(iboSpec);
             m_Device.CopyBuffer(iboStaging.get(), subMesh.IndexBuffer.get(), indexBufferSize, 0, 0);
 
-            // --- МАТЕРИАЛЫ ---
             if (matId >= 0 && matId < (int)parsedData.Materials.size())
                 LoadMaterialTextures(subMesh.Mat, parsedData.Materials[matId], parsedData.BasePath);
             else
-                LoadMaterialTextures(subMesh.Mat, {}, parsedData.BasePath); // Дефолты, если нет материала
+                LoadMaterialTextures(subMesh.Mat, {}, parsedData.BasePath);
 
-            // --- ДЕСКРИПТОРНЫЙ НАБОР ---
             subMesh.Mat.DescriptorSet = m_Device.CreateDescriptorSet(textureLayout);
             subMesh.Mat.DescriptorSet->BindTexture(ALBEDO_SLOT, subMesh.Mat.Albedo.get(), m_DefaultSampler.get());
             subMesh.Mat.DescriptorSet->BindTexture(NORMAL_SLOT, subMesh.Mat.Normal.get(), m_DefaultSampler.get());
@@ -294,9 +547,11 @@ namespace Flux {
             model->Meshes.push_back(std::move(subMesh));
         }
 
-        FL_CORE_INFO("Loaded Model: {0} | Vertices: {1} | SubMeshes: {2}", path.string(), parsedData.Vertices.size(), model->Meshes.size());
+        FL_CORE_INFO("Loaded Model: {0} | Vertices: {1} | SubMeshes: {2}",
+            path.string(), parsedData.Vertices.size(), model->Meshes.size());
         return model;
     }
+
 
     // ==========================================
     //  Загрузка текстуры
@@ -306,13 +561,15 @@ namespace Flux {
         int width = 0, height = 0, channels = 0;
         stbi_uc* data = stbi_load(path.string().c_str(), &width, &height, &channels, 4);
 
-        FL_CORE_ASSERT(data, "Failed to load texture: {0} | Reason: {1}", path.string(), stbi_failure_reason());
+        FL_CORE_ASSERT(data, "Failed to load texture: {0} | Reason: {1}",
+            path.string(), stbi_failure_reason());
 
         TextureSpec spec{};
         spec.Width = width;
         spec.Height = height;
         spec.Depth = 1;
-        spec.MipLevels = 1; 
+        spec.MipLevels = 1;
+        spec.GenerateMipmaps = true;
         spec.ImageFormat = Format::R8G8B8A8_UNORM;
         spec.Usage = TextureUsage::Sampled;
 
