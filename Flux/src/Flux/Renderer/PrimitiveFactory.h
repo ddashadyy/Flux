@@ -8,13 +8,11 @@ namespace Flux {
     class PrimitiveFactory
     {
     public:
-        // Горизонтальная плоскость size x size, subdivisions делений
         static Ref<Model> CreatePlane(RHIDevice& device,
             RHIDescriptorSetLayout* textureLayout,
             float size = 10.0f,
             uint32_t subdivisions = 1);
 
-        // Единичный куб [-0.5 .. 0.5]
         static Ref<Model> CreateCube(RHIDevice& device,
             RHIDescriptorSetLayout* textureLayout);
 
