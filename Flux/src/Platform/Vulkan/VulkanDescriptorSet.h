@@ -23,6 +23,14 @@ namespace Flux {
     };
 
 
+    struct PendingWrite
+    {
+        VkWriteDescriptorSet       Write{};
+        VkDescriptorBufferInfo     BufferInfo{};
+        VkDescriptorImageInfo      ImageInfo{};
+        bool                       IsBuffer = false;
+    };
+
     class VulkanDescriptorSet final : public RHIDescriptorSet
     {
     public:
@@ -46,13 +54,6 @@ namespace Flux {
 
         DescriptorSetLayoutDesc m_LayoutDesc{};
 
-        struct PendingWrite
-        {
-            VkWriteDescriptorSet       Write{};
-            VkDescriptorBufferInfo     BufferInfo{};
-            VkDescriptorImageInfo      ImageInfo{};
-            bool                       IsBuffer = false;
-        };
         std::vector<PendingWrite> m_Pending;
     };
 
