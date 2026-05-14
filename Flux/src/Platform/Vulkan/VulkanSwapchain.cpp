@@ -2,32 +2,41 @@
 #include "VulkanSwapchain.h"
 #include "VulkanSemaphore.h"
 
-namespace Flux {
+namespace {
 
-    static VkSurfaceFormatKHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats)
+    VkSurfaceFormatKHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats)
     {
-        for (const auto& f : formats)
-            if (f.format == VK_FORMAT_B8G8R8A8_UNORM && f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-                return f;
+        FL_CORE_ASSERT(!formats.empty(), "No surface formats available!");
+
+        for (const auto& format : formats)
+            if (format.format == VK_FORMAT_B8G8R8A8_UNORM && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+                return format;
+        
         return formats[0];
     }
 
-    static VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& modes)
+    VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& modes)
     {
-        for (const auto& m : modes)
-            if (m == VK_PRESENT_MODE_MAILBOX_KHR) return m;
+        for (const auto& mode : modes)
+            if (mode == VK_PRESENT_MODE_MAILBOX_KHR) return mode;
+        
         return VK_PRESENT_MODE_FIFO_KHR;
     }
 
-    static VkExtent2D ChooseExtent(const VkSurfaceCapabilitiesKHR& caps, uint32_t w, uint32_t h)
+    VkExtent2D ChooseExtent(const VkSurfaceCapabilitiesKHR& caps, uint32_t w, uint32_t h)
     {
         if (caps.currentExtent.width != UINT32_MAX)
             return caps.currentExtent;
+
         return {
-            std::clamp(w, caps.minImageExtent.width,  caps.maxImageExtent.width),
-            std::clamp(h, caps.minImageExtent.height, caps.maxImageExtent.height)
+            .width = std::clamp(w, caps.minImageExtent.width,  caps.maxImageExtent.width),
+            .height = std::clamp(h, caps.minImageExtent.height, caps.maxImageExtent.height)
         };
     }
+
+} // anonymous namespace
+
+namespace Flux {
 
     VulkanSwapchain::VulkanSwapchain(VkDevice device, VkPhysicalDevice physicalDevice,
         VkSurfaceKHR surface, VkQueue presentQueue,
@@ -51,7 +60,7 @@ namespace Flux {
 
     uint32_t VulkanSwapchain::AcquireNextImage(RHISemaphore* semaphore)
     {
-        VkSemaphore vkSem = semaphore->GetHandle<VkSemaphore>();
+        VkSemaphore vkSem = static_cast<VkSemaphore>(semaphore->GetHandle());
 
         VkResult result = vkAcquireNextImageKHR(
             m_Device, m_Swapchain, UINT64_MAX,
@@ -81,7 +90,7 @@ namespace Flux {
 
     void VulkanSwapchain::Present(RHISemaphore* semaphore, uint32_t imageIndex)
     {
-        VkSemaphore vkSem = semaphore->GetHandle<VkSemaphore>();
+        VkSemaphore vkSem = static_cast<VkSemaphore>(semaphore->GetHandle());
 
         VkPresentInfoKHR presentInfo{ VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
         presentInfo.waitSemaphoreCount = 1;
@@ -100,6 +109,8 @@ namespace Flux {
 
     void VulkanSwapchain::Resize(uint32_t w, uint32_t h)
     {
+        m_NeedsResize = false;
+
         vkDeviceWaitIdle(m_Device);
         Cleanup();
         CreateSwapchain(w, h);
@@ -194,7 +205,6 @@ namespace Flux {
 
     void VulkanSwapchain::Cleanup()
     {
-        // Сначала очищаем texture wrappers — они не владеют image/view, но держат указатели
         m_ColorTargets.clear();
 
         for (auto& iv : m_ImageViews)
