@@ -2,44 +2,58 @@
 #include "VulkanRenderPass.h"
 #include "VulkanCommon.h"
 
-namespace Flux {
+namespace {
 
-    static VkAttachmentLoadOp GetLoadOp(AttachmentLoadOp loadOp)
+    using Flux::AttachmentLoadOp;
+    using Flux::AttachmentStoreOp;
+    using Flux::ImageLayout;
+
+    constexpr VkAttachmentLoadOp GetLoadOp(AttachmentLoadOp loadOp)
     {
+        using enum AttachmentLoadOp;
+
         switch (loadOp)
         {
-        case AttachmentLoadOp::Load:     return VK_ATTACHMENT_LOAD_OP_LOAD;
-        case AttachmentLoadOp::Clear:    return VK_ATTACHMENT_LOAD_OP_CLEAR;
-        case AttachmentLoadOp::DontCare: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        case Load:     return VK_ATTACHMENT_LOAD_OP_LOAD;
+        case Clear:    return VK_ATTACHMENT_LOAD_OP_CLEAR;
+        case DontCare: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         }
-        FL_CORE_ASSERT(false, "Unknown Attachment load op!");
+        FL_CONSTEXPR_ASSERT(false, "Unknown Attachment load op!");
         return VK_ATTACHMENT_LOAD_OP_NONE;
     }
 
-    static VkAttachmentStoreOp GetStoreOp(AttachmentStoreOp storeOp)
+    constexpr VkAttachmentStoreOp GetStoreOp(AttachmentStoreOp storeOp)
     {
+        using enum AttachmentStoreOp;
+
         switch (storeOp)
         {
-        case AttachmentStoreOp::Store:    return VK_ATTACHMENT_STORE_OP_STORE;
-        case AttachmentStoreOp::DontCare: return VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        case Store:    return VK_ATTACHMENT_STORE_OP_STORE;
+        case DontCare: return VK_ATTACHMENT_STORE_OP_DONT_CARE;
         }
-        FL_CORE_ASSERT(false, "Unknown Attachment store op!");
+        FL_CONSTEXPR_ASSERT(false, "Unknown Attachment store op!");
         return VK_ATTACHMENT_STORE_OP_NONE;
     }
 
-    static VkImageLayout GetImageLayout(ImageLayout layout)
+    constexpr VkImageLayout GetImageLayout(ImageLayout layout)
     {
+        using enum ImageLayout;
+
         switch (layout)
         {
-        case ImageLayout::Undefined:              return VK_IMAGE_LAYOUT_UNDEFINED;
-        case ImageLayout::ColorAttachment:        return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        case ImageLayout::DepthStencilAttachment: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        case ImageLayout::ShaderReadOnly:         return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        case ImageLayout::Present:                return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        case Undefined:              return VK_IMAGE_LAYOUT_UNDEFINED;
+        case ColorAttachment:        return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        case DepthStencilAttachment: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        case ShaderReadOnly:         return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        case Present:                return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
         }
-        FL_CORE_ASSERT(false, "Unknown ImageLayout!");
+        FL_CONSTEXPR_ASSERT(false, "Unknown ImageLayout!");
         return VK_IMAGE_LAYOUT_UNDEFINED;
     }
+
+} // anonymous namespace
+
+namespace Flux {
 
     VulkanRenderPass::VulkanRenderPass(VkDevice device, const RenderPassDesc& desc)
         : m_Device(device), m_Desc(desc)
