@@ -45,9 +45,8 @@ namespace Flux {
     public:
         explicit Renderer(RHIDevice& device);
 
-        void BeginScene(RHICommandList& cmd,
-            RHIPipeline& pipeline,
-            const PerspectiveCamera& camera);
+        void BeginScene(RHICommandList& cmd, RHIPipeline& pipeline,
+            const PerspectiveCamera& camera, float viewportWidth, float viewportHeight);
 
         void AddPointLight(const PointLight& light);
         void ClearLights();

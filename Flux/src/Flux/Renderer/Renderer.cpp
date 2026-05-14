@@ -43,27 +43,22 @@ namespace Flux {
         m_GlobalDescriptorSet->Update();
     }
 
-    void Renderer::BeginScene(RHICommandList& cmd,
-        RHIPipeline& pipeline,
-        const PerspectiveCamera& camera)
+    void Renderer::BeginScene(RHICommandList& cmd, RHIPipeline& pipeline, const PerspectiveCamera& camera, float viewportWidth, float viewportHeight)
     {
         m_CommandList = &cmd;
         m_Pipeline = &pipeline;
 
-        auto& window = Application::Get().GetWindow();
-        float aspect = (float)window.GetWidth() / (float)window.GetHeight();
+        float aspect = viewportWidth / viewportHeight;
 
         GlobalUBO ubo{};
-        ubo.View       = camera.GetViewMatrix();
+        ubo.View = camera.GetViewMatrix();
         ubo.Projection = glm::perspective(glm::radians(camera.GetFOV()), aspect, 0.1f, 1000.0f);
         ubo.Projection[1][1] *= -1; // Vulkan Y flip
-        ubo.CameraPos  = camera.GetPosition();
+        ubo.CameraPos = camera.GetPosition();
         ubo.LightCount = (int)m_PointLights.size();
 
         for (int i = 0; i < ubo.LightCount; i++)
             ubo.Lights[i] = m_PointLights[i];
-
-        FL_CORE_WARN("CameraPos in UBO: {}, {}, {}", ubo.CameraPos.x, ubo.CameraPos.y, ubo.CameraPos.z);
 
         m_GlobalUBO->SetData(&ubo, sizeof(GlobalUBO));
 
@@ -84,6 +79,8 @@ namespace Flux {
 
     void Renderer::Submit(const Entity& entity)
     {
+        if (entity.IsMarkedForDeletion()) return;
+
         auto model = entity.GetModel();
         if (!model) return;
 
