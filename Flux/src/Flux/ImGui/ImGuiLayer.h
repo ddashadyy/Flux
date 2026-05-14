@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Flux/Core/Layer.h"
-
 #include "Flux/Events/ApplicationEvent.h"
 #include "Flux/Events/MouseEvent.h"
 #include "Flux/Events/KeyEvent.h"
@@ -24,18 +23,15 @@ namespace Flux {
         void Begin();
         void End(uint32_t frameIndex = 0);
 
-        void OnResize(uint32_t width, uint32_t height) override;
+        void CreateFramebuffers(uint32_t width, uint32_t height);
+        void DestroyFramebuffers();
 
-        RHIRenderPass&  GetRenderPass() const { return *m_RenderPass; }
-        RHIFramebuffer& GetFramebuffer(uint32_t index) const { return *m_Framebuffers[index]; }
-
-    private:
-        void CreateRenderPass();
-        void CreateFramebuffers();
+        RHIRenderPass* GetPresentRenderPass() const { return m_PresentRenderPass.get(); }
+        RHIFramebuffer* GetFramebuffer(uint32_t index) const { return m_Framebuffers[index].get(); }
 
     private:
-        Scope<RHIRenderPass>               m_RenderPass;
-        std::vector<Scope<RHIFramebuffer>> m_Framebuffers;
+        Scope<RHIRenderPass>                m_PresentRenderPass;
+        std::vector<Scope<RHIFramebuffer>>  m_Framebuffers; 
 
         float m_Time = 0.0f;
     };
