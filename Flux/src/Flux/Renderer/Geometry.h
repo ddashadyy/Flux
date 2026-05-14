@@ -10,6 +10,16 @@
 
 namespace Flux {
 
+    struct AABB
+    {
+        glm::vec3 Min{ FLT_MAX,  FLT_MAX,  FLT_MAX };
+        glm::vec3 Max{ -FLT_MAX, -FLT_MAX, -FLT_MAX };
+
+        glm::vec3 Center()  const { return (Min + Max) * 0.5f; }
+        glm::vec3 Extents() const { return (Max - Min) * 0.5f; }
+        bool      IsValid() const { return Min.x <= Max.x; }
+    };
+
     struct Vertex
     {
         glm::vec3 Position;
@@ -60,6 +70,7 @@ namespace Flux {
     {
         Scope<RHIBuffer>     VertexBuffer;
         std::vector<SubMesh> Meshes;
+        AABB                 Bounds;
     };
 
 }
