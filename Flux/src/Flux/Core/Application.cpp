@@ -72,6 +72,7 @@ namespace Flux {
             return false;
 
         m_Device->GetSwapchain()->Resize(e.GetWidth(), e.GetHeight());
+        m_ImGuiLayer->CreateFramebuffers(e.GetWidth(), e.GetHeight());
 
         for (auto& layer : m_LayerStack)
             layer->OnResize(e.GetWidth(), e.GetHeight());
@@ -97,30 +98,27 @@ namespace Flux {
         auto* cmdList = m_Device->GetCommandList(imageIndex);
 
         cmdList->Begin();
-
         for (Layer* layer : m_LayerStack)
             layer->OnUpdate(cmdList, imageIndex);
-
-        
         cmdList->BeginRenderPass(
-            &m_ImGuiLayer->GetRenderPass(),
-            &m_ImGuiLayer->GetFramebuffer(imageIndex)
+            m_ImGuiLayer->GetPresentRenderPass(),
+            m_ImGuiLayer->GetFramebuffer(imageIndex)
         );
+
         cmdList->SetViewport(0, 0, (float)m_Window->GetWidth(), (float)m_Window->GetHeight());
         cmdList->SetScissor(0, 0, m_Window->GetWidth(), m_Window->GetHeight());
 
         m_ImGuiLayer->Begin();
         for (Layer* layer : m_LayerStack)
             layer->OnImGuiRender();
-        m_ImGuiLayer->End(imageIndex); 
+        m_ImGuiLayer->End(imageIndex);
+
         cmdList->EndRenderPass();
-
-
         cmdList->End();
 
         SubmitDesc submitDesc{};
         submitDesc.CommandList = cmdList;
-        submitDesc.SignalFence = &m_FrameSync->GetFrameFence(imageIndex); 
+        submitDesc.SignalFence = &m_FrameSync->GetFrameFence(imageIndex);
         submitDesc.WaitSemaphore = &m_FrameSync->GetImageAvailable(m_CurrentFrame);
         submitDesc.SignalSemaphore = &m_FrameSync->GetRenderFinished(m_CurrentFrame);
         m_Device->Submit(submitDesc);

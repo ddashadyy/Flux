@@ -37,7 +37,9 @@ namespace Flux {
 
         static Application& Get() { return *s_Instance; }
 
-        AssetManager& GetAssetManager() { return *m_AssetManager; }
+        AssetManager& GetAssetManager() const { return *m_AssetManager; }
+
+        ImGuiLayer* GetImGuiLayer() const { return m_ImGuiLayer; }
 
     private:
         bool OnWindowClose(WindowCloseEvent& e);
