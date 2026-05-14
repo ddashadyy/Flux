@@ -27,17 +27,17 @@ namespace Flux {
 
 
 // Core log macros
-#define FL_CORE_TRACE(...)       ::Flux::Log::GetCoreLogger()->trace("{} [{}:{}]", fmt::format(__VA_ARGS__), __FILE__, __LINE__)
-#define FL_CORE_INFO(...)        ::Flux::Log::GetCoreLogger()->info("{} [{}:{}]", fmt::format(__VA_ARGS__), __FILE__, __LINE__)
-#define FL_CORE_WARN(...)        ::Flux::Log::GetCoreLogger()->warn("{} [{}:{}]", fmt::format(__VA_ARGS__), __FILE__, __LINE__)
-#define FL_CORE_ERROR(...)       ::Flux::Log::GetCoreLogger()->error("{} [{}:{}]", fmt::format(__VA_ARGS__), __FILE__, __LINE__)
-#define FL_CORE_FATAL(...)       ::Flux::Log::GetCoreLogger()->fatal("{} [{}:{}]", fmt::format(__VA_ARGS__), __FILE__, __LINE__)
+#define FL_CORE_TRACE(...)       ::Flux::Log::GetCoreLogger()->trace("{}", fmt::format(__VA_ARGS__))
+#define FL_CORE_INFO(...)        ::Flux::Log::GetCoreLogger()->info("{}", fmt::format(__VA_ARGS__))
+#define FL_CORE_WARN(...)        ::Flux::Log::GetCoreLogger()->warn("{}", fmt::format(__VA_ARGS__))
+#define FL_CORE_ERROR(...)       ::Flux::Log::GetCoreLogger()->error("{}", fmt::format(__VA_ARGS__))
+#define FL_CORE_FATAL(...)       ::Flux::Log::GetCoreLogger()->critical("{}", fmt::format(__VA_ARGS__))
 
 // Client log macros
-#define FL_TRACE(...)            ::Flux::Log::GetClientLogger()->trace("{} [{}:{}]", fmt::format(__VA_ARGS__), __FILE__, __LINE__)
-#define FL_INFO(...)             ::Flux::Log::GetClientLogger()->info("{} [{}:{}]", fmt::format(__VA_ARGS__), __FILE__, __LINE__)
-#define FL_WARN(...)             ::Flux::Log::GetClientLogger()->warn("{} [{}:{}]", fmt::format(__VA_ARGS__), __FILE__, __LINE__)
-#define FL_ERROR(...)            ::Flux::Log::GetClientLogger()->error("{} [{}:{}]", fmt::format(__VA_ARGS__), __FILE__, __LINE__)
-#define FL_FATAL(...)            ::Flux::Log::GetClientLogger()->fatal("{} [{}:{}]", fmt::format(__VA_ARGS__), __FILE__, __LINE__)
+#define FL_TRACE(...)            ::Flux::Log::GetClientLogger()->trace("{}", fmt::format(__VA_ARGS__))
+#define FL_INFO(...)             ::Flux::Log::GetClientLogger()->info("{}", fmt::format(__VA_ARGS__))
+#define FL_WARN(...)             ::Flux::Log::GetClientLogger()->warn("{}", fmt::format(__VA_ARGS__))
+#define FL_ERROR(...)            ::Flux::Log::GetClientLogger()->error("{}", fmt::format(__VA_ARGS__))
+#define FL_FATAL(...)            ::Flux::Log::GetClientLogger()->critical("{}", fmt::format(__VA_ARGS__))
 
 
