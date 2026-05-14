@@ -1,7 +1,14 @@
 #pragma once
 
+#include <cassert>
 #include <memory>
 #include <type_traits>
+
+#if defined(_MSVC_LANG)
+	#define FL_CPP_STANDARD _MSVC_LANG 
+#else
+	#define FL_CPP_STANDARD __cplusplus
+#endif
 
 #ifdef FL_PLATFORM_WINDOWS
 	#if FL_DYNAMIC_LINK
@@ -19,7 +26,13 @@
 
 #ifdef FL_ENABLE_ASSERTS
 	#define FL_ASSERT(x, ...) { if(!(x)) { FL_ERROR("Assertion Failed: {0}", __VA_ARGS__); __debugbreak(); } }
-	#define FL_CORE_ASSERT(x, ...) { if(!(x)) { FL_CORE_ERROR("Assertion Failed: {0}", __VA_ARGS__); __debugbreak(); } }
+	#define FL_CORE_ASSERT(x, ...) { if(!(x)) { FL_CORE_ERROR("Core Assertion Failed: {0}", __VA_ARGS__); __debugbreak(); } }
+
+	#if FL_CPP_STANDARD >= 202002L
+		#define FL_CONSTEXPR_ASSERT(cond, msg) assert(((void)msg, (cond)))
+	#else
+		#define FL_CONSTEXPR_ASSERT(cond, msg) do { if (!(cond)) throw msg; } while(0)
+	#endif
 #else
 	#define FL_ASSERT(x, ...)
 	#define FL_CORE_ASSERT(x, ...)
