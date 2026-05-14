@@ -186,7 +186,7 @@ namespace Flux {
         return CreateScope<VulkanDescriptorSet>(
             m_Device,
             m_DescriptorPool,
-            layout->GetHandle<VkDescriptorSetLayout>(),
+            static_cast<VkDescriptorSetLayout>(layout->GetHandle()),
             layout->GetDesc());
     }
 
@@ -198,10 +198,10 @@ namespace Flux {
     {
         FL_CORE_ASSERT(desc.CommandList, "Submit: CommandList is null!");
 
-        VkCommandBuffer cmd = desc.CommandList->GetHandle<VkCommandBuffer>();
-        VkFence         fence = desc.SignalFence ? desc.SignalFence->GetHandle<VkFence>() : VK_NULL_HANDLE;
-        VkSemaphore     waitSem = desc.WaitSemaphore ? desc.WaitSemaphore->GetHandle<VkSemaphore>() : VK_NULL_HANDLE;
-        VkSemaphore     signalSem = desc.SignalSemaphore ? desc.SignalSemaphore->GetHandle<VkSemaphore>() : VK_NULL_HANDLE;
+        VkCommandBuffer cmd = static_cast<VkCommandBuffer>(desc.CommandList->GetHandle());
+        VkFence         fence = desc.SignalFence ? static_cast<VkFence>(desc.SignalFence->GetHandle()) : VK_NULL_HANDLE;
+        VkSemaphore     waitSem = desc.WaitSemaphore ? static_cast<VkSemaphore>(desc.WaitSemaphore->GetHandle()) : VK_NULL_HANDLE;
+        VkSemaphore     signalSem = desc.SignalSemaphore ? static_cast<VkSemaphore>(desc.SignalSemaphore->GetHandle()) : VK_NULL_HANDLE;
 
         VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
@@ -234,6 +234,7 @@ namespace Flux {
 
             void Begin() override {}
             void End()   override {}
+            void* GetHandle() const override { return Cmd; }
             void BeginRenderPass(RHIRenderPass*, RHIFramebuffer*, glm::vec4, float, uint8_t) override {}
             void EndRenderPass()                                                              override {}
             void SetViewport(float, float, float, float, float, float)                            override {}
@@ -254,7 +255,6 @@ namespace Flux {
             void BlitTexture(RHITexture*, RHITexture*, TextureRegion, TextureRegion, FilterMode) override {}
             void ResourceBarrier(RHITexture*, ResourceState, ResourceState)                    override {}
             void BufferBarrier(RHIBuffer*, ResourceState, ResourceState)                       override {}
-            void* GetHandleImpl() const override { return Cmd; }
         };
 
         ImmediateAdapter adapter;
@@ -278,8 +278,8 @@ namespace Flux {
     void VulkanDevice::CopyBuffer(RHIBuffer* src, RHIBuffer* dst,
         uint64_t size, uint64_t srcOffset, uint64_t dstOffset) const
     {
-        VkBuffer     srcBuf = src->GetHandle<VkBuffer>();
-        VkBuffer     dstBuf = dst->GetHandle<VkBuffer>();
+        VkBuffer     srcBuf = static_cast<VkBuffer>(src->GetHandle());
+        VkBuffer     dstBuf = static_cast<VkBuffer>(dst->GetHandle());
         VkDeviceSize copySize = (size > 0) ? size : src->GetSize();
 
         VkCommandBufferAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
