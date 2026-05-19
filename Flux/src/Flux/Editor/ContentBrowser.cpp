@@ -268,7 +268,7 @@ namespace Flux {
             return FileType::Model;
         if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".tga" || ext == ".dds")
             return FileType::Texture;
-        if (ext == ".flux" || ext == ".scene")
+        if (ext == ".flux" || ext == ".scene" || ext == ".flscene")
             return FileType::Scene;
 
         return FileType::Unknown;
