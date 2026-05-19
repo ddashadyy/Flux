@@ -1,15 +1,16 @@
 #include "flpch.h"
 #include "ScenePanel.h"
 
+#include "Flux/Scene/Components.h"
+
 #include <imgui.h>
-#include <ImGuiFileDialog.h>
 #include <glm/gtc/type_ptr.hpp>
 
 namespace Flux {
 
     void ScenePanel::OnImGuiRender()
     {
-        ProcessHotkeys(); 
+        ProcessHotkeys();
         DrawHierarchy();
         DrawInspector();
     }
@@ -18,53 +19,29 @@ namespace Flux {
     {
         ImGui::Begin("Hierarchy");
 
-        if (!m_Scene)
-        {
+        if (!m_Scene) {
             ImGui::TextDisabled("No scene loaded");
             ImGui::End();
             return;
         }
 
-        if (ImGui::Button("+ Import Model"))
-        {
-            IGFD::FileDialogConfig cfg;
-            cfg.path = ".";
-            ImGuiFileDialog::Instance()->OpenDialog(
-                "ImportModelDlg", "Choose Model", ".obj,.gltf,.glb", cfg);
-        }
-
-        if (ImGuiFileDialog::Instance()->Display("ImportModelDlg",
-            ImGuiWindowFlags_NoCollapse, ImVec2(600, 400)))
-        {
-            if (ImGuiFileDialog::Instance()->IsOk() && m_ImportCallback)
-                m_ImportCallback(ImGuiFileDialog::Instance()->GetFilePathName());
-            ImGuiFileDialog::Instance()->Close();
-        }
-
         ImGui::Separator();
 
-        auto& entities = m_Scene->GetEntities();
-        for (int i = 0; i < (int)entities.size(); i++)
+        auto& registry = m_Scene->GetRegistry();
+        auto view = registry.view<TagComponent, TransformComponent>();
+
+        for (auto entityHandle : view)
         {
-            const auto& entity = entities[i];
-            std::string label = entity.GetName().empty()
-                ? ("Entity " + std::to_string(i))
-                : entity.GetName();
+            Entity entity(entityHandle, m_Scene.get());
 
-            bool selected = (m_SelectedIndex == i);
-            if (ImGui::Selectable(label.c_str(), selected))
-                m_SelectedIndex = (m_SelectedIndex == i) ? -1 : i;
+            if (entity.HasComponent<RelationshipComponent>() &&
+                entity.GetComponent<RelationshipComponent>().ParentID != UUID(nullptr)) continue;
 
-            if (ImGui::BeginPopupContextItem(label.c_str()))
-            {
-                if (ImGui::MenuItem("Duplicate")) DuplicateSelectedEntity();
-                if (ImGui::MenuItem("Delete"))    DeleteSelectedEntity();
-                ImGui::EndPopup();
-            }
+            DrawEntityNode(entity);
         }
 
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::IsWindowHovered())
-            m_SelectedIndex = -1;
+            m_SelectedEntity = Entity();
 
         ImGui::End();
     }
@@ -73,86 +50,95 @@ namespace Flux {
     {
         ImGui::Begin("Inspector");
 
-        if (!m_Scene || m_SelectedIndex < 0 ||
-            m_SelectedIndex >= (int)m_Scene->GetEntities().size())
+        if (!m_Scene || !m_SelectedEntity)
         {
             ImGui::TextDisabled("Nothing selected");
             ImGui::End();
             return;
         }
 
-        Entity& entity = m_Scene->GetEntities()[m_SelectedIndex];
-        Transform& t = entity.GetTransform();
+        Entity& entity = m_SelectedEntity;
 
         // --- Имя ---
+        if (entity.HasComponent<TagComponent>())
         {
+            auto& tag = entity.GetComponent<TagComponent>();
             char buf[256];
-            std::strncpy(buf, entity.GetName().c_str(), sizeof(buf));
+            std::strncpy(buf, tag.Tag.c_str(), sizeof(buf));
             buf[sizeof(buf) - 1] = '\0';
             if (ImGui::InputText("##Name", buf, sizeof(buf)))
-                entity.SetName(buf);
+                tag.Tag = buf;
         }
 
         ImGui::Separator();
 
         // --- Transform ---
-        if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
+        if (entity.HasComponent<TransformComponent>())
         {
-            ImGui::DragFloat3("Position", glm::value_ptr(t.Position), 0.05f);
-            ImGui::DragFloat3("Rotation", glm::value_ptr(t.Rotation), 0.5f);
-            ImGui::DragFloat3("Scale", glm::value_ptr(t.Scale), 0.005f, 0.001f, 100.0f);
+            auto& t = entity.GetComponent<TransformComponent>();
+            if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::DragFloat3("Position", glm::value_ptr(t.Translation), 0.05f);
+
+                glm::vec3 rotation = t.GetEulerAngles();
+                if (ImGui::DragFloat3("Rotation", glm::value_ptr(rotation), 0.5f))
+                    t.SetEulerAngles(rotation);
+
+                ImGui::DragFloat3("Scale", glm::value_ptr(t.Scale), 0.005f, 0.001f, 100.0f);
+            }
         }
 
         // --- Material ---
-        auto model = entity.GetModel();
-        if (model)
+        if (entity.HasComponent<MeshComponent>())
         {
-            if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen))
+            auto model = entity.GetComponent<MeshComponent>().Model;
+            if (model)
             {
-                Material& first = model->Meshes[0].Mat;
-
-                if (ImGui::ColorEdit4("Color##Material", glm::value_ptr(first.Color)))
-                    for (auto& mesh : model->Meshes) mesh.Mat.Color = first.Color;
-
-                bool useRoughness = (first.RoughnessOverride >= 0.0f);
-                if (ImGui::Checkbox("Override Roughness", &useRoughness))
-                    for (auto& mesh : model->Meshes)
-                        mesh.Mat.RoughnessOverride = useRoughness ? 0.5f : -1.0f;
-                if (useRoughness)
+                if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen))
                 {
-                    ImGui::SameLine();
-                    if (ImGui::SliderFloat("##Roughness", &first.RoughnessOverride, 0.0f, 1.0f))
-                        for (auto& mesh : model->Meshes)
-                            mesh.Mat.RoughnessOverride = first.RoughnessOverride;
-                }
+                    Material& first = model->Meshes[0].Mat;
 
-                bool useMetallic = (first.MetallicOverride >= 0.0f);
-                if (ImGui::Checkbox("Override Metallic", &useMetallic))
-                    for (auto& mesh : model->Meshes)
-                        mesh.Mat.MetallicOverride = useMetallic ? 0.0f : -1.0f;
-                if (useMetallic)
-                {
-                    ImGui::SameLine();
-                    if (ImGui::SliderFloat("##Metallic", &first.MetallicOverride, 0.0f, 1.0f))
+                    if (ImGui::ColorEdit4("Color##Material", glm::value_ptr(first.Color)))
+                        for (auto& mesh : model->Meshes) mesh.Mat.Color = first.Color;
+
+                    bool useRoughness = (first.RoughnessOverride >= 0.0f);
+                    if (ImGui::Checkbox("Override Roughness", &useRoughness))
                         for (auto& mesh : model->Meshes)
-                            mesh.Mat.MetallicOverride = first.MetallicOverride;
+                            mesh.Mat.RoughnessOverride = useRoughness ? 0.5f : -1.0f;
+                    if (useRoughness)
+                    {
+                        ImGui::SameLine();
+                        if (ImGui::SliderFloat("##Roughness", &first.RoughnessOverride, 0.0f, 1.0f))
+                            for (auto& mesh : model->Meshes)
+                                mesh.Mat.RoughnessOverride = first.RoughnessOverride;
+                    }
+
+                    bool useMetallic = (first.MetallicOverride >= 0.0f);
+                    if (ImGui::Checkbox("Override Metallic", &useMetallic))
+                        for (auto& mesh : model->Meshes)
+                            mesh.Mat.MetallicOverride = useMetallic ? 0.0f : -1.0f;
+                    if (useMetallic)
+                    {
+                        ImGui::SameLine();
+                        if (ImGui::SliderFloat("##Metallic", &first.MetallicOverride, 0.0f, 1.0f))
+                            for (auto& mesh : model->Meshes)
+                                mesh.Mat.MetallicOverride = first.MetallicOverride;
+                    }
                 }
             }
         }
 
-        // ==========================================
-        // --- Компоненты ---
-        // ==========================================
-        if (entity.HasLight())
+        // --- Light ---
+        if (entity.HasComponent<LightComponent>())
         {
-            auto& light = entity.GetLight();
+            auto& light = entity.GetComponent<LightComponent>();
 
             if (ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 ImGui::SameLine(ImGui::GetWindowWidth() - 30.0f);
                 if (ImGui::SmallButton("x##RemoveLight"))
                 {
-                    entity.RemoveLight();
+                    entity.RemoveComponent<LightComponent>();
                 }
                 else
                 {
@@ -170,9 +156,6 @@ namespace Flux {
             }
         }
 
-        // ==========================================
-        // --- Добавление компонентов ---
-        // ==========================================
         ImGui::Separator();
 
         if (ImGui::Button("+ Add Component", ImVec2(-1, 0)))
@@ -180,20 +163,14 @@ namespace Flux {
 
         if (ImGui::BeginPopup("AddComponentPopup"))
         {
-            if (!entity.HasLight())
+            if (!entity.HasComponent<LightComponent>())
             {
                 if (ImGui::MenuItem("Point Light"))
-                {
-                    entity.AddLight();
-                }
+                    entity.AddComponent<LightComponent>();
             }
-
             ImGui::EndPopup();
         }
 
-        // ==========================================
-        // --- Экшены сущности ---
-        // ==========================================
         ImGui::Separator();
 
         if (ImGui::Button("Duplicate", ImVec2(-1, 0)))
@@ -211,9 +188,93 @@ namespace Flux {
         ImGui::End();
     }
 
+    void ScenePanel::DrawEntityNode(Entity entity)
+    {
+        auto& tag = entity.GetComponent<TagComponent>().Tag;
+        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+
+        if (entity.HasComponent<RelationshipComponent>()) {
+            if (entity.GetComponent<RelationshipComponent>().Children.empty())
+                flags |= ImGuiTreeNodeFlags_Leaf;
+        }
+        else {
+            flags |= ImGuiTreeNodeFlags_Leaf;
+        }
+
+        bool selected = (m_SelectedEntity == entity);
+        if (selected) flags |= ImGuiTreeNodeFlags_Selected;
+
+        const char* displayName = tag.empty() ? "Unnamed Entity" : tag.c_str();
+        const std::string nodeLabel = std::string(displayName) + "##" + std::to_string((uint32_t)entity);
+
+        bool opened = ImGui::TreeNodeEx(nodeLabel.c_str(), flags);
+
+        if (ImGui::IsItemClicked())
+            m_SelectedEntity = entity;
+
+        // --- Drag & Drop ---
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+        {
+            ImGui::SetDragDropPayload("ENTITY_NODE", &entity, sizeof(Entity));
+            ImGui::Text("%s", displayName);
+            ImGui::EndDragDropSource();
+        }
+
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ENTITY_NODE"))
+            {
+                Entity draggedEntity = *(const Entity*)payload->Data;
+                m_Scene->SetParent(draggedEntity, entity);
+            }
+            ImGui::EndDragDropTarget();
+        }
+
+        if (ImGui::BeginPopupContextItem())
+        {
+            if (ImGui::MenuItem("Duplicate")) DuplicateSelectedEntity();
+            if (ImGui::MenuItem("Delete"))    DeleteSelectedEntity();
+
+            if (entity.HasComponent<RelationshipComponent>() &&
+                entity.GetComponent<RelationshipComponent>().ParentID != UUID(nullptr))
+            {
+                if (ImGui::MenuItem("Unparent"))
+                {
+                    auto& rel = entity.GetComponent<RelationshipComponent>();
+                    Entity parent = m_Scene->GetEntityByUUID(rel.ParentID);
+                    if (parent)
+                    {
+                        auto& parentRel = parent.GetComponent<RelationshipComponent>();
+                        UUID childID = entity.GetComponent<IDComponent>().ID;
+                        auto it = std::remove(parentRel.Children.begin(), parentRel.Children.end(), childID);
+                        if (it != parentRel.Children.end())
+                            parentRel.Children.erase(it, parentRel.Children.end());
+                    }
+                    rel.ParentID = UUID(nullptr);
+                }
+            }
+            ImGui::EndPopup();
+        }
+
+        if (opened)
+        {
+            if (entity.HasComponent<RelationshipComponent>())
+            {
+                auto& rel = entity.GetComponent<RelationshipComponent>();
+                for (UUID childID : rel.Children)
+                {
+                    Entity child = m_Scene->GetEntityByUUID(childID);
+                    if (child)
+                        DrawEntityNode(child);
+                }
+            }
+            ImGui::TreePop();
+        }
+    }
+
     void ScenePanel::ProcessHotkeys()
     {
-        if (!m_Scene || m_SelectedIndex < 0) return;
+        if (!m_Scene || !m_SelectedEntity) return;
 
         if (ImGui::IsKeyPressed(ImGuiKey_Delete))
             DeleteSelectedEntity();
@@ -224,18 +285,42 @@ namespace Flux {
 
     void ScenePanel::DeleteSelectedEntity()
     {
-        if (!m_Scene || m_SelectedIndex < 0) return;
+        if (!m_Scene || !m_SelectedEntity) return;
 
-        m_Scene->RemoveEntity(m_SelectedIndex);
-        m_SelectedIndex = -1; 
+        m_Scene->DestroyEntity(m_SelectedEntity);
+        m_SelectedEntity = Entity();
     }
 
     void ScenePanel::DuplicateSelectedEntity()
     {
-        if (!m_Scene || m_SelectedIndex < 0) return;
+        if (!m_Scene || !m_SelectedEntity) return;
 
-        m_Scene->DuplicateEntity(m_SelectedIndex);
-        m_SelectedIndex = (int)m_Scene->GetEntities().size() - 1;
+        Entity newEntity = m_Scene->CreateEntity(
+            m_SelectedEntity.GetComponent<TagComponent>().Tag + " Copy");
+
+        if (m_SelectedEntity.HasComponent<TransformComponent>())
+            newEntity.GetComponent<TransformComponent>() =
+            m_SelectedEntity.GetComponent<TransformComponent>();
+
+        if (m_SelectedEntity.HasComponent<MeshComponent>())
+            newEntity.AddComponent<MeshComponent>(m_SelectedEntity.GetComponent<MeshComponent>());
+
+        if (m_SelectedEntity.HasComponent<LightComponent>())
+            newEntity.AddComponent<LightComponent>(m_SelectedEntity.GetComponent<LightComponent>());
+
+        if (m_SelectedEntity.HasComponent<RelationshipComponent>())
+        {
+            auto& srcRel = m_SelectedEntity.GetComponent<RelationshipComponent>();
+            if (srcRel.ParentID != UUID(nullptr))
+            {
+                Entity parent = m_Scene->GetEntityByUUID(srcRel.ParentID);
+                if (parent)
+                    m_Scene->SetParent(newEntity, parent);
+            }
+        }
+
+        newEntity.GetComponent<TransformComponent>().Translation.x += 1.0f;
+        m_SelectedEntity = newEntity;
     }
 
 } // namespace Flux
