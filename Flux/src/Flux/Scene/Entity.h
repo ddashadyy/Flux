@@ -1,76 +1,58 @@
 #pragma once
 
-#include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/quaternion.hpp>
+#include <entt/entt.hpp>
 
-#include <optional>
-#include <string>
-
-#include "Flux/Renderer/RHICommandList.h"
-#include "Flux/Renderer/AssetManager.h" 
+#include "Scene.h"
+#include "Components.h"
 
 namespace Flux {
-
-    struct Transform
-    {
-        glm::vec3 Position = { 0, 0, 0 };
-        glm::vec3 Rotation = { 0, 0, 0 };
-        glm::vec3 Scale = { 1, 1, 1 };
-
-        glm::mat4 GetMatrix() const
-        {
-            glm::mat4 t = glm::translate(glm::mat4(1.0f), Position);
-            glm::mat4 r = glm::toMat4(glm::quat(glm::radians(Rotation)));
-            glm::mat4 s = glm::scale(glm::mat4(1.0f), Scale);
-            return t * r * s;
-        }
-    };
-
-    struct LightComponent
-    {
-        enum class LightType { Point, Directional, Spot } Type = LightType::Point;
-        glm::vec3 Color = { 1.0f, 1.0f, 1.0f };
-        float Intensity = 1.0f;
-        float Range = 10.0f;
-    };
 
     class Entity
     {
     public:
         Entity() = default;
-        explicit Entity(Ref<Model> model) : m_Model(std::move(model)) {}
+        Entity(entt::entity handle, Scene* scene) : m_EntityHandle(handle), m_Scene(scene) {}
+        Entity(const Entity&) = default;
 
-        Transform& GetTransform() { return m_Transform; }
-        const Transform& GetTransform() const { return m_Transform; }
+        Scene* GetScene() { return m_Scene; }
 
-        Ref<Model> GetModel() const { return m_Model; }
-        void       SetModel(Ref<Model> model) { m_Model = std::move(model); }
+        template<typename T, typename... Args>
+        decltype(auto) AddComponent(Args&&... args)
+        {
+            return m_Scene->GetRegistry().emplace<T>(m_EntityHandle, std::forward<Args>(args)...);
+        }
 
-        const std::string& GetName() const { return m_Name; }
-        void               SetName(const std::string& name) { m_Name = name; }
+        template<typename T>
+        T& GetComponent()
+        {
+            return m_Scene->GetRegistry().get<T>(m_EntityHandle);
+        }
 
+        template<typename T>
+        bool HasComponent()
+        {
+            return m_Scene->GetRegistry().all_of<T>(m_EntityHandle);
+        }
 
-        void MarkForDeletion()           { m_MarkedForDeletion = true; }
-        bool IsMarkedForDeletion() const { return m_MarkedForDeletion; }
+        template<typename T>
+        void RemoveComponent()
+        {
+            m_Scene->GetRegistry().remove<T>(m_EntityHandle);
+        }
 
-        // --- МЕТОДЫ ДЛЯ РАБОТЫ С КОМПОНЕНТАМИ ---
-        bool                  HasLight() const { return m_Light.has_value(); }
+        const std::string& GetTag() { return GetComponent<TagComponent>().Tag; }
+        TransformComponent& GetTransform() { return GetComponent<TransformComponent>(); }
 
-        LightComponent&       GetLight() { return m_Light.value(); }
-        const LightComponent& GetLight() const { return m_Light.value(); }
+        operator bool() const { return m_EntityHandle != entt::null; }
+        operator entt::entity() const { return m_EntityHandle; }
 
-        void AddLight()    { m_Light.emplace(); }
-        void RemoveLight() { m_Light.reset(); }
+        bool operator==(const Entity& other) const
+        {
+            return m_EntityHandle == other.m_EntityHandle && m_Scene == other.m_Scene;
+        }
 
     private:
-        std::string m_Name;
-        Transform   m_Transform{};
-        Ref<Model>  m_Model;
-
-        std::optional<LightComponent> m_Light;
-
-        bool m_MarkedForDeletion = false;
+        entt::entity m_EntityHandle{ entt::null };
+        Scene* m_Scene = nullptr;
     };
 }
