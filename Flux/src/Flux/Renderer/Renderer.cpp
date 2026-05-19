@@ -79,8 +79,6 @@ namespace Flux {
 
     void Renderer::Submit(Ref<Flux::Model> model, const glm::mat4& transform)
     {
-        //if (entity.IsMarkedForDeletion()) return;
-
         if (!model) return;
 
         m_CommandList->BindVertexBuffer(model->VertexBuffer.get());
