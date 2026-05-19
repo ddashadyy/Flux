@@ -1,59 +1,34 @@
 #pragma once
 
-#include "Entity.h"
-#include "Flux/Renderer/RHICommandList.h"
 
-#include <algorithm>
+#include <entt/entt.hpp>
+#include "Flux/Core/UUID.h"
 
 namespace Flux {
+
+    class Entity;
 
     class Scene
     {
     public:
-        using Entities = std::vector<Entity>;
-
         Scene() = default;
 
-        Entity& AddEntity(Ref<Model> model, const std::string& name = "")
-        {
-            auto& e = m_Entities.emplace_back(std::move(model));
-            if (!name.empty()) e.SetName(name);
-            return e;
-        }
+        Entity CreateEntity(const std::string& name = "Entity");
+        Entity CreateEntityWithID(UUID uuid, const std::string& name = "Entity");
 
-        Entity& DuplicateEntity(size_t index)
-        {
-            if (index >= m_Entities.size())
-                return m_Entities.back();
+        void DestroyEntity(Entity entity); 
+        void ProcessDeletions();           
 
-            Entity newEntity = m_Entities[index];
+        void OnUpdate(float dt);
 
-            newEntity.GetTransform().Position.x += 1.0f;
+        entt::registry& GetRegistry() { return m_Registry; }
+        const entt::registry& GetRegistry() const { return m_Registry; }
 
-            if (!newEntity.GetName().empty())
-                newEntity.SetName(newEntity.GetName() + " Copy");
-
-            m_Entities.emplace_back(newEntity);
-            return m_Entities.back();
-        }
-
-        void RemoveEntity(size_t index)
-        {
-            if (index < m_Entities.size())
-            {
-                m_Entities[index].MarkForDeletion();
-            }
-        }
-
-        void ProcessDeletions()
-        {
-            std::erase_if(m_Entities, [](const Entity& e) { return e.IsMarkedForDeletion(); });
-        }
-
-        Entities& GetEntities() { return m_Entities; }
-        const Entities& GetEntities() const { return m_Entities; }
+        Entity GetEntityByUUID(UUID uuid);
+        void SetParent(Entity child, Entity parent);
 
     private:
-        Entities m_Entities;
+        entt::registry m_Registry;
+        std::unordered_map<UUID, entt::entity> m_EntityMap;
     };
 }
