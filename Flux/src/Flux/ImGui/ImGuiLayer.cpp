@@ -10,6 +10,7 @@
 #include <backends/imgui_impl_vulkan.h>
 
 #include "Flux/Core/Application.h"
+#include "Flux/Editor/EditorTheme.h"
 
 #include "Platform/Vulkan/VulkanDevice.h"
 #include "Platform/Vulkan/VulkanSwapchain.h"
@@ -29,7 +30,8 @@ namespace Flux {
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
         io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
-        ImGui::StyleColorsDark();
+        EditorTheme::Apply();
+
         ImGuiStyle& style = ImGui::GetStyle();
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
             style.WindowRounding = 0.0f;
@@ -84,8 +86,6 @@ namespace Flux {
 
     void ImGuiLayer::OnImGuiRender()
     {
-        static bool show = true;
-        ImGui::ShowDemoWindow(&show);
     }
 
     void ImGuiLayer::Begin()
