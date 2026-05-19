@@ -1,7 +1,10 @@
 #include "flpch.h"
 #include "RayCaster.h"
+#include "Flux/Scene/Entity.h"
+#include "Flux/Scene/Components.h" 
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <limits>
 
 namespace Flux {
 
@@ -48,7 +51,7 @@ namespace Flux {
         float tExit = glm::min(glm::min(tMax.x, tMax.y), tMax.z);
 
         if (tExit < 0.0f || tEnter > tExit)
-            return -1.0f; 
+            return -1.0f;
 
         return tEnter >= 0.0f ? tEnter : tExit;
     }
@@ -56,33 +59,36 @@ namespace Flux {
     // -------------------------------------------------------------------------
     // PickEntity
     // -------------------------------------------------------------------------
-    int RayCaster::PickEntity(float ndcX, float ndcY,
+    Entity RayCaster::PickEntity(float ndcX, float ndcY,
         const PerspectiveCamera& camera,
-        const Scene& scene)
+        Scene& scene)
     {
         Ray ray = BuildRay(ndcX, ndcY, camera);
 
-        int   closestIndex = -1;
-        float closestT = FLT_MAX;
+        Entity closestEntity;
+        float closestT = std::numeric_limits<float>::max();
 
-        const auto& entities = scene.GetEntities();
-        for (int i = 0; i < (int)entities.size(); ++i)
+        auto& registry = scene.GetRegistry();
+        auto view = registry.view<TransformComponent, MeshComponent>();
+
+        for (auto entityHandle : view)
         {
-            const Entity& entity = entities[i];
-            auto model = entity.GetModel();
-            if (!model || !model->Bounds.IsValid()) continue;
+            auto& transform = view.get<TransformComponent>(entityHandle);
+            auto& meshComp = view.get<MeshComponent>(entityHandle);
 
-            glm::mat4 modelMatrix = entity.GetTransform().GetMatrix();
-            float t = HitAABB(ray, model->Bounds, modelMatrix);
+            if (!meshComp.Model || !meshComp.Model->Bounds.IsValid()) continue;
+
+            glm::mat4 modelMatrix = transform.GetLocalMatrix();
+            float t = HitAABB(ray, meshComp.Model->Bounds, modelMatrix);
 
             if (t >= 0.0f && t < closestT)
             {
                 closestT = t;
-                closestIndex = i;
+                closestEntity = Entity(entityHandle, &scene);
             }
         }
 
-        return closestIndex;
+        return closestEntity;
     }
 
 } // namespace Flux

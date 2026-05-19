@@ -3,6 +3,7 @@
 #include "Flux/Renderer/Geometry.h"
 #include "Flux/Renderer/PerspectiveCamera.h"
 #include "Flux/Scene/Scene.h"
+#include "Flux/Scene/Entity.h" 
 
 #include <glm/glm.hpp>
 
@@ -21,9 +22,9 @@ namespace Flux {
 
         static float HitAABB(const Ray& ray, const AABB& aabb, const glm::mat4& modelMatrix);
 
-        static int PickEntity(float ndcX, float ndcY,
+        static Entity PickEntity(float ndcX, float ndcY,
             const PerspectiveCamera& camera,
-            const Scene& scene);
+            Scene& scene); 
     };
 
 } // namespace Flux
