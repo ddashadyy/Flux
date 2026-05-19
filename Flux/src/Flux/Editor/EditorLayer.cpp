@@ -12,8 +12,10 @@
 
 #include "Flux/Scene/Entity.h"
 #include "Flux/Scene/Components.h"
+#include "Flux/Scene/SceneSerializer.h"
 
 #include <imgui.h>
+#include <ImGuiFileDialog.h>
 #include <GLFW/glfw3.h>
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -50,6 +52,9 @@ namespace Flux {
         m_SceneRenderer = CreateScope<SceneRenderer>();
         m_SceneRenderer->Init(app.GetDevice());
 
+        auto* texLayout = m_SceneRenderer->GetTextureDescriptorSetLayout();
+        Application::Get().GetAssetManager().InitRendererResources(texLayout);
+
         m_Scene = CreateRef<Scene>();
         m_ScenePanel.SetScene(m_Scene);
 
@@ -74,9 +79,8 @@ namespace Flux {
     void EditorLayer::LoadModel(const std::string& path)
     {
         auto& assetManager = Application::Get().GetAssetManager();
-        auto* texLayout = m_SceneRenderer->GetTextureDescriptorSetLayout();
 
-        auto model = assetManager.LoadModel(path, texLayout);
+        auto model = assetManager.LoadModel(path);
         if (!model) return;
 
         const std::string name = std::filesystem::path(path).stem().string();
@@ -90,6 +94,30 @@ namespace Flux {
 
     void EditorLayer::OnUpdate(RHICommandList* cmdList, uint32_t imageIndex)
     {
+        if (m_PendingSceneLoad.Active)
+        {
+            m_PendingSceneLoad.Active = false;
+
+            Application::Get().GetDevice().WaitIdle(); 
+
+            m_ScenePanel.SetSelectedEntity(Entity());
+            m_Scene.reset();
+            m_Scene = CreateRef<Scene>();
+            m_ScenePanel.SetScene(m_Scene);
+
+            if (!m_PendingSceneLoad.IsNew)
+            {
+                SceneSerializer serializer(m_Scene);
+                if (!serializer.Deserialize(m_PendingSceneLoad.Path))
+                    FL_CORE_ERROR("Failed to load scene: {0}", m_PendingSceneLoad.Path);
+                m_CurrentScenePath = m_PendingSceneLoad.Path;
+            }
+            else
+            {
+                m_CurrentScenePath = "";
+            }
+        }
+
         if (m_ViewportNeedsResize)
         {
             m_ViewportNeedsResize = false;
@@ -154,7 +182,8 @@ namespace Flux {
             ImGuiWindowFlags_NoMove |
             ImGuiWindowFlags_NoBringToFrontOnFocus |
             ImGuiWindowFlags_NoNavFocus |
-            ImGuiWindowFlags_NoBackground;
+            ImGuiWindowFlags_NoBackground |
+            ImGuiWindowFlags_MenuBar;
 
         ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(viewport->Pos);
@@ -166,6 +195,9 @@ namespace Flux {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
         ImGui::Begin("##Dockspace", nullptr, flags);
+
+        DrawMenuBar();
+
         ImGui::PopStyleVar(3);
         ImGui::DockSpace(ImGui::GetID("MainDockspace"));
         ImGui::End();
@@ -317,6 +349,87 @@ namespace Flux {
 
         ImGui::End();
         ImGui::PopStyleVar();
+    }
+
+    void EditorLayer::DrawMenuBar()
+    {
+        if (ImGui::BeginMenuBar())
+        {
+            if (ImGui::BeginMenu("File"))
+            {
+                if (ImGui::MenuItem("New Scene"))
+                {
+                    m_PendingSceneLoad = { true, "", true };
+                }
+
+                if (ImGui::MenuItem("Save Scene"))
+                {
+                    if (!m_CurrentScenePath.empty()) 
+                    {
+                        SceneSerializer serializer(m_Scene);
+                        serializer.Serialize(m_CurrentScenePath);
+                    }
+                    else 
+                    {
+                        IGFD::FileDialogConfig cfg;
+                        cfg.path = ".";
+                        ImGuiFileDialog::Instance()->OpenDialog("SaveSceneDlg", "Save Scene", ".flscene", cfg);
+                    }
+                }
+
+                if (ImGui::MenuItem("Save Scene As..."))
+                {
+                    IGFD::FileDialogConfig cfg;
+                    cfg.path = ".";
+                    ImGuiFileDialog::Instance()->OpenDialog("SaveSceneDlg", "Save Scene", ".flscene", cfg);
+                }
+
+                if (ImGui::MenuItem("Open Scene"))
+                {
+                    IGFD::FileDialogConfig cfg;
+                    cfg.path = ".";
+                    ImGuiFileDialog::Instance()->OpenDialog("OpenSceneDlg", "Open Scene", ".flscene", cfg);
+                }
+
+                ImGui::EndMenu();
+            }
+            ImGui::EndMenuBar();
+        }
+
+        // Обработка диалога сохранения
+        if (ImGuiFileDialog::Instance()->Display("SaveSceneDlg", ImGuiWindowFlags_NoCollapse, ImVec2(600, 400)))
+        {
+            if (ImGuiFileDialog::Instance()->IsOk())
+            {
+                m_CurrentScenePath = ImGuiFileDialog::Instance()->GetFilePathName();
+                SceneSerializer serializer(m_Scene);
+                serializer.Serialize(m_CurrentScenePath);
+            }
+            ImGuiFileDialog::Instance()->Close();
+        }
+
+        // Обработка диалога загрузки
+        if (ImGuiFileDialog::Instance()->Display("OpenSceneDlg", ImGuiWindowFlags_NoCollapse, ImVec2(600, 400)))
+        {
+            if (ImGuiFileDialog::Instance()->IsOk())
+            {
+                m_PendingSceneLoad = {
+                   true,
+                   ImGuiFileDialog::Instance()->GetFilePathName(),
+                   false
+                };
+            }
+            ImGuiFileDialog::Instance()->Close();
+        }
+
+        if (ImGui::MenuItem("New Scene"))
+        {
+            Application::Get().GetDevice().WaitIdle();
+            m_Scene.reset();
+            m_Scene = CreateRef<Scene>();
+            m_ScenePanel.SetScene(m_Scene);
+            m_CurrentScenePath = "";
+        }
     }
 
     // =========================================================================
