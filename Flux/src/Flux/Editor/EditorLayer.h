@@ -38,6 +38,7 @@ namespace Flux {
         void DrawDockspace();
         void DrawStatsWindow();
         void DrawViewport();
+        void DrawMenuBar();
 
     private:
         Ref<Scene>           m_Scene;
@@ -53,6 +54,16 @@ namespace Flux {
 
         ImGuizmo::OPERATION m_GizmoOperation = ImGuizmo::TRANSLATE;
         float               m_LastFrameTime = 0.0f;
+
+        std::string m_CurrentScenePath;
+
+        struct PendingSceneLoad 
+        {
+            bool        Active = false;
+            std::string Path;
+            bool        IsNew = false; // true = New Scene, false = Open
+        };
+        PendingSceneLoad m_PendingSceneLoad;
     };
 
 } // namespace Flux
