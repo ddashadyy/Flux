@@ -19,6 +19,8 @@ namespace Flux {
         void DestroyEntity(Entity entity); 
         void ProcessDeletions();           
 
+        void Clear();
+
         void OnUpdate(float dt);
 
         entt::registry& GetRegistry() { return m_Registry; }

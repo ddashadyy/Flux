@@ -75,6 +75,12 @@ namespace Flux {
         }
     }
 
+    void Scene::Clear()
+    {
+        m_Registry.clear();
+        m_EntityMap.clear();
+    }
+
     Entity Scene::GetEntityByUUID(UUID uuid)
     {
         auto it = m_EntityMap.find(uuid);
