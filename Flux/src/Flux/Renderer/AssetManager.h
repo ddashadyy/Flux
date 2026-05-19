@@ -19,8 +19,10 @@ namespace Flux {
 
         explicit AssetManager(RHIDevice& device);
 
-        Ref<Model>   LoadModel(const std::filesystem::path& path, RHIDescriptorSetLayout* textureLayout);
+        Ref<Model>   LoadModel(const std::filesystem::path& path);
         Ref<Texture> LoadTexture(const std::filesystem::path& path);
+
+        void InitRendererResources(RHIDescriptorSetLayout* textureLayout);
 
         void ClearCache();
 
@@ -46,6 +48,8 @@ namespace Flux {
 
     private:
         RHIDevice& m_Device;
+
+        RHIDescriptorSetLayout* m_TextureLayout = nullptr;
 
         CacheMap<std::string, Model>   m_ModelCache;
         CacheMap<std::string, Texture> m_TextureCache;
