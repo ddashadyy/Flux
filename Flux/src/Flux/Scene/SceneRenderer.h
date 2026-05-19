@@ -25,12 +25,13 @@ namespace Flux {
         ImTextureID GetViewportTextureID() const { return m_ViewportTextureID; }
 
         RHIDescriptorSetLayout* GetTextureDescriptorSetLayout() const { return m_Renderer->GetTextureDescriptorSetLayout(); }
+
         void AddPointLight(const PointLight& light) { m_Renderer->AddPointLight(light); }
 
     private:
         void CreateOffscreenResources(uint32_t width, uint32_t height);
         void CreatePipeline();
-        void ExtractLightsFromScene(Ref<Scene> scene); 
+        void ExtractLightsFromScene(Ref<Scene> scene);
 
     private:
         RHIDevice* m_Device = nullptr;
@@ -51,11 +52,8 @@ namespace Flux {
 
         Scope<RHIPipeline>    m_Pipeline;
 
-
         ImTextureID m_ViewportTextureID = 0;
 
         static constexpr SampleCount MSAA_SAMPLES = SampleCount::x8;
-
-        // TODO: Пост-процессинг (Bloom, Tone Mapping)
     };
 }

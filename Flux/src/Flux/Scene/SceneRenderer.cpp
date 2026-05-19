@@ -1,6 +1,8 @@
 #include "flpch.h"
 #include "SceneRenderer.h"
 
+#include "Components.h"
+
 #include <backends/imgui_impl_vulkan.h> 
 
 namespace Flux {
@@ -36,44 +38,27 @@ namespace Flux {
     {
         m_Renderer->ClearLights();
 
-        for (auto& entity : scene->GetEntities())
-        {
-            if (entity.IsMarkedForDeletion()) continue;
-            if (entity.HasLight())
-            {
-                auto& light = entity.GetLight();
-                auto& transform = entity.GetTransform();
+        auto& registry = scene->GetRegistry();
+        auto view = registry.view<TransformComponent, LightComponent>(entt::exclude<DestroyFlag>);
 
-                if (light.Type == LightComponent::LightType::Point)
-                {
-                    PointLight pl;
-                    pl.Position = glm::vec4(transform.Position, 1.0f);
-                    pl.Color = glm::vec4(light.Color, light.Intensity);
-                    m_Renderer->AddPointLight(pl);
-                }
-                // else if (Directional / Spot) ...
+        for (auto entity : view)
+        {
+            auto& transform = view.get<TransformComponent>(entity);
+            auto& light = view.get<LightComponent>(entity);
+
+            if (light.Type == LightComponent::LightType::Point)
+            {
+                PointLight pl;
+                pl.Position = glm::vec4(transform.Translation, 1.0f);
+                pl.Color = glm::vec4(light.Color, light.Intensity);
+                m_Renderer->AddPointLight(pl);
             }
+            // else if (Directional / Spot) ...
         }
     }
 
     void SceneRenderer::Render(RHICommandList* cmdList, Ref<Scene> scene, const PerspectiveCamera& camera)
     {
-        bool needsDeletion = false;
-        for (auto& entity : scene->GetEntities())
-        {
-            if (entity.IsMarkedForDeletion())
-            {
-                needsDeletion = true;
-                break;
-            }
-        }
-
-        if (needsDeletion)
-        {
-            m_Device->WaitIdle(); 
-            scene->ProcessDeletions(); 
-        }
-
         ExtractLightsFromScene(scene);
 
         cmdList->BeginRenderPass(
@@ -88,9 +73,19 @@ namespace Flux {
 
         m_Renderer->BeginScene(*cmdList, *m_Pipeline, camera, m_ViewportSize.x, m_ViewportSize.y);
 
-        for (auto& entity : scene->GetEntities())
+        auto& registry = scene->GetRegistry();
+
+        auto meshView = registry.view<TransformComponent, MeshComponent>(entt::exclude<DestroyFlag>);
+
+        for (auto entity : meshView)
         {
-            m_Renderer->Submit(entity);
+            auto& transform = meshView.get<TransformComponent>(entity);
+            auto& mesh = meshView.get<MeshComponent>(entity);
+
+            if (mesh.Model) 
+            {
+                m_Renderer->Submit(mesh.Model, transform.WorldMatrix);
+            }
         }
 
         m_Renderer->EndScene();
@@ -158,16 +153,16 @@ namespace Flux {
         desc.Samples = MSAA_SAMPLES;
 
         desc.ColorLoadOp = AttachmentLoadOp::Clear;
-        desc.ColorStoreOp = AttachmentStoreOp::DontCare; 
+        desc.ColorStoreOp = AttachmentStoreOp::DontCare;
         desc.DepthLoadOp = AttachmentLoadOp::Clear;
         desc.DepthStoreOp = AttachmentStoreOp::DontCare;
 
         desc.HasResolve = true;
         desc.ColorInitialLayout = ImageLayout::Undefined;
-        desc.ColorFinalLayout = ImageLayout::ColorAttachment; 
+        desc.ColorFinalLayout = ImageLayout::ColorAttachment;
 
         desc.ResolveInitialLayout = ImageLayout::Undefined;
-        desc.ResolveFinalLayout = ImageLayout::ShaderReadOnly; 
+        desc.ResolveFinalLayout = ImageLayout::ShaderReadOnly;
 
         desc.DepthInitialLayout = ImageLayout::Undefined;
         desc.DepthFinalLayout = ImageLayout::DepthStencilAttachment;
@@ -210,7 +205,7 @@ namespace Flux {
         desc.VertexShader = m_VertShader.get();
         desc.FragmentShader = m_FragShader.get();
         desc.VertexLayout = vertexLayout;
-        desc.RenderPass = m_GeometryPass.get(); 
+        desc.RenderPass = m_GeometryPass.get();
         desc.Topology = PrimitiveTopology::TriangleList;
         desc.Samples = MSAA_SAMPLES;
 
@@ -236,5 +231,4 @@ namespace Flux {
 
         m_Pipeline = m_Device->CreatePipeline(desc);
     }
-
 }
