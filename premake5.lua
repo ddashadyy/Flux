@@ -1,33 +1,33 @@
-workspace "Flux" 
+workspace "Flux"
 	architecture "x64"
 	startproject "Sandbox"
 
-	configurations 
+	configurations
 	{
 		"Debug",
 		"Release",
 		"Dist"
 	}
 
-outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
+outputdir                     = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
-LibDir = {}
-LibDir["Vulkan"] = "D:/VulkanSDK/1.4.335.0/Lib"
+LibDir                        = {}
+LibDir["Vulkan"]              = "D:/VulkanSDK/1.4.335.0/Lib"
 
-IncludeDir = {}
-IncludeDir["spdlog"]  = "Flux/vendor/spdlog/include"
-IncludeDir["GLFW"] = "Flux/vendor/GLFW/include"
-IncludeDir["Vulkan"] = "D:/VulkanSDK/1.4.335.0/Include"
-IncludeDir["ImGui"] = "Flux/vendor/imgui"
-IncludeDir["glm"] = "Flux/vendor/glm"
-IncludeDir["vma"] = "Flux/vendor/vma/include"
-IncludeDir["stb"] = "Flux/vendor/stb"
-IncludeDir["tinyobjloader"] = "Flux/vendor/tinyobjloader"
-IncludeDir["tinygltf"] = "Flux/vendor/tinygltf/include"
-IncludeDir["json"] = "Flux/vendor/json/include"
+IncludeDir                    = {}
+IncludeDir["spdlog"]          = "Flux/vendor/spdlog/include"
+IncludeDir["GLFW"]            = "Flux/vendor/GLFW/include"
+IncludeDir["Vulkan"]          = "D:/VulkanSDK/1.4.335.0/Include"
+IncludeDir["ImGui"]           = "Flux/vendor/imgui"
+IncludeDir["glm"]             = "Flux/vendor/glm"
+IncludeDir["vma"]             = "Flux/vendor/vma/include"
+IncludeDir["stb"]             = "Flux/vendor/stb"
+IncludeDir["tinyobjloader"]   = "Flux/vendor/tinyobjloader"
+IncludeDir["tinygltf"]        = "Flux/vendor/tinygltf/include"
+IncludeDir["json"]            = "Flux/vendor/json/include"
 IncludeDir["ImGuiFileDialog"] = "Flux/vendor/imguifiledialog/include"
-IncludeDir["ImGuizmo"] = "Flux/vendor/imguizmo/include"
-
+IncludeDir["ImGuizmo"]        = "Flux/vendor/imguizmo/include"
+IncludeDir["entt"]            = "Flux/vendor/entt/include"
 
 include "Flux/vendor/GLFW"
 include "Flux/vendor/imgui"
@@ -41,8 +41,8 @@ project "Flux"
 	cppdialect "C++20"
 	staticruntime "on"
 
-	targetdir ("bin/" .. outputdir .. "/%{prj.name}")
-	objdir ("bin-int/" .. outputdir .. "/%{prj.name}")
+	targetdir("bin/" .. outputdir .. "/%{prj.name}")
+	objdir("bin-int/" .. outputdir .. "/%{prj.name}")
 
 	pchheader "flpch.h"
 	pchsource "Flux/src/flpch.cpp"
@@ -58,7 +58,8 @@ project "Flux"
 		"%{prj.name}/vendor/tinygltf/**.h",
 		"%{prj.name}/vendor/imguizmo/**.h",
 		"%{prj.name}/vendor/imguizmo/**.cpp",
-		"%{prj.name}/vendor/json/include/**.h"
+		"%{prj.name}/vendor/json/include/**.h",
+		"%{prj.name}/vendor/entt/include/**.h"
 	}
 
 	includedirs
@@ -75,7 +76,8 @@ project "Flux"
 		"%{IncludeDir.tinygltf}",
 		"%{IncludeDir.json}",
 		"%{IncludeDir.ImGuiFileDialog}",
-		"%{IncludeDir.ImGuizmo}"
+		"%{IncludeDir.ImGuizmo}",
+		"%{IncludeDir.entt}"
 	}
 
 	links
@@ -87,16 +89,16 @@ project "Flux"
 	}
 
 	filter "files:Flux/vendor/ImGuizmo/**.cpp"
-    	enablepch "Off"
+		enablepch "Off"
 	filter {}
 
 	filter "system:windows"
 		systemversion "latest"
-		buildoptions { "/utf-8" }  
+		buildoptions { "/utf-8" }
 
-		defines 
+		defines
 		{
-			"FL_PLATFORM_WINDOWS",
+			"FL_PLATFORM_WINDOWS"
 		}
 
 	filter "configurations:Debug"
@@ -121,9 +123,9 @@ project "Sandbox"
 	cppdialect "C++20"
 	staticruntime "on"
 
-	targetdir ("bin/" .. outputdir .. "/%{prj.name}")
-	objdir ("bin-int/" .. outputdir .. "/%{prj.name}")
-	
+	targetdir("bin/" .. outputdir .. "/%{prj.name}")
+	objdir("bin-int/" .. outputdir .. "/%{prj.name}")
+
 	files
 	{
 		"%{prj.name}/src/**.h",
@@ -145,18 +147,19 @@ project "Sandbox"
 		"%{IncludeDir.tinygltf}",
 		"%{IncludeDir.json}",
 		"%{IncludeDir.ImGuiFileDialog}",
-		"%{IncludeDir.ImGuizmo}"
+		"%{IncludeDir.ImGuizmo}",
+		"%{IncludeDir.entt}"
 	}
 
-	links 
+	links
 	{
 		"Flux"
 	}
 
 	filter "system:windows"
 		systemversion "latest"
-		buildoptions { "/utf-8" }  
-		defines { "FL_PLATFORM_WINDOWS" }
+		buildoptions { "/utf-8" }
+		defines { "FL_PLATFORM_WINDOWS", "NOMINMAX" }
 
 	filter "configurations:Debug"
 		defines { "FL_DEBUG" }
