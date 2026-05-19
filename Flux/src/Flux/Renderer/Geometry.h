@@ -8,6 +8,8 @@
 #include "RHIShader.h"
 #include "RHITexture.h"
 
+#include <filesystem>
+
 namespace Flux {
 
     struct AABB
@@ -56,21 +58,25 @@ namespace Flux {
     {
         Scope<RHIBuffer> IndexBuffer;
         uint32_t         IndexCount = 0;
+        uint32_t         BaseVertex = 0; 
         IndexType        Type = IndexType::Uint32;
         Material         Mat;
 
         void Draw(RHICommandList& cmdList) const
         {
             cmdList.BindIndexBuffer(IndexBuffer.get(), Type);
-            cmdList.DrawIndexed(IndexCount);
+            cmdList.DrawIndexed(IndexCount, 1, 0, BaseVertex, 0);
         }
     };
 
     struct Model
     {
+        std::filesystem::path Path;
         Scope<RHIBuffer>     VertexBuffer;
         std::vector<SubMesh> Meshes;
         AABB                 Bounds;
+
+        const std::filesystem::path& GetPath() const { return Path; }
     };
 
 }
