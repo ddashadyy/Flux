@@ -77,11 +77,10 @@ namespace Flux {
         m_PointLights.clear();
     }
 
-    void Renderer::Submit(const Entity& entity)
+    void Renderer::Submit(Ref<Flux::Model> model, const glm::mat4& transform)
     {
-        if (entity.IsMarkedForDeletion()) return;
+        //if (entity.IsMarkedForDeletion()) return;
 
-        auto model = entity.GetModel();
         if (!model) return;
 
         m_CommandList->BindVertexBuffer(model->VertexBuffer.get());
@@ -91,7 +90,7 @@ namespace Flux {
             m_CommandList->BindDescriptorSet(1, subMesh.Mat.DescriptorSet.get(), m_Pipeline);
 
             PushConstantData push{};
-            push.Model             = entity.GetTransform().GetMatrix();
+            push.Model             = transform;
             push.Color             = subMesh.Mat.Color;
             push.RoughnessOverride = subMesh.Mat.RoughnessOverride;
             push.MetallicOverride  = subMesh.Mat.MetallicOverride;

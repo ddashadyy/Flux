@@ -3,12 +3,14 @@
 #include <glm/glm.hpp>
 #include <vector>
 
-#include "Flux/Renderer/RHIDevice.h"
-#include "Flux/Renderer/RHIBuffer.h"
-#include "Flux/Renderer/RHICommandList.h"
-#include "Flux/Renderer/RHIDescriptorSet.h"
-#include "Flux/Renderer/RHIPipeline.h"
-#include "Flux/Scene/Entity.h"
+#include "RHIDevice.h"
+#include "RHIBuffer.h"
+#include "RHICommandList.h"
+#include "RHIDescriptorSet.h"
+#include "RHIPipeline.h"
+
+#include "Geometry.h"
+
 
 namespace Flux {
 
@@ -51,7 +53,7 @@ namespace Flux {
         void AddPointLight(const PointLight& light);
         void ClearLights();
 
-        void Submit(const Entity& entity);
+        void Submit(Ref<Model> model, const glm::mat4& transform);
         void EndScene();
 
         RHIDescriptorSetLayout* GetGlobalDescriptorSetLayout()  const { return m_GlobalDescriptorSetLayout.get(); }
