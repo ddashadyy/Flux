@@ -5,16 +5,20 @@
 #include "Flux/Events/KeyEvent.h"
 #include "Flux/Core/Input.h"
 #include "Flux/Core/KeyCodes.h"
-#include "Flux/ImGui/ImGuiLayer.h" 
+#include "Flux/ImGui/ImGuiLayer.h"
 
 #include "Flux/Renderer/PrimitiveFactory.h"
 #include "Flux/Renderer/RayCaster.h"
+
+#include "Flux/Scene/Entity.h"
+#include "Flux/Scene/Components.h"
 
 #include <imgui.h>
 #include <GLFW/glfw3.h>
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 #include <filesystem>
 
@@ -49,16 +53,11 @@ namespace Flux {
         m_Scene = CreateRef<Scene>();
         m_ScenePanel.SetScene(m_Scene);
 
-        m_ScenePanel.SetImportModelCallback([this](const std::string& path) {
-            auto& assetManager = Application::Get().GetAssetManager();
-            auto* texLayout = m_SceneRenderer->GetTextureDescriptorSetLayout();
-
-            auto model = assetManager.LoadModel(path, texLayout);
-            if (!model) return;
-
-            const std::string name = std::filesystem::path(path).stem().string();
-            m_Scene->AddEntity(model, name);
+        m_ContentBrowser.SetImportCallback([this](const std::string& path) {
+            if (!path.empty())
+                LoadModel(path);
             });
+        m_ContentBrowser.SetRootPath(std::filesystem::current_path() / "assets");
 
         LoadDefaultScene();
     }
@@ -72,8 +71,21 @@ namespace Flux {
         m_Scene.reset();
     }
 
+    void EditorLayer::LoadModel(const std::string& path)
+    {
+        auto& assetManager = Application::Get().GetAssetManager();
+        auto* texLayout = m_SceneRenderer->GetTextureDescriptorSetLayout();
+
+        auto model = assetManager.LoadModel(path, texLayout);
+        if (!model) return;
+
+        const std::string name = std::filesystem::path(path).stem().string();
+        Entity entity = m_Scene->CreateEntity(name);
+        entity.AddComponent<MeshComponent>(model);
+    }
+
     // =========================================================================
-    //  OnUpdate (Рендер цикл)
+    //  OnUpdate
     // =========================================================================
 
     void EditorLayer::OnUpdate(RHICommandList* cmdList, uint32_t imageIndex)
@@ -95,8 +107,14 @@ namespace Flux {
         m_LastFrameTime = currentTime;
 
         m_Camera.OnUpdate(dt);
-
+        m_Scene->OnUpdate(dt);
         m_SceneRenderer->Render(cmdList, m_Scene, m_Camera.GetCamera());
+
+        if (!m_Scene->GetRegistry().view<DestroyFlag>().empty())
+        {
+            Application::Get().GetDevice().WaitIdle();
+            m_Scene->ProcessDeletions();
+        }
     }
 
     // =========================================================================
@@ -111,6 +129,7 @@ namespace Flux {
         DrawViewport();
         DrawStatsWindow();
         m_ScenePanel.OnImGuiRender();
+        m_ContentBrowser.OnImGuiRender();
     }
 
     void EditorLayer::OnEvent(Event& event)
@@ -157,12 +176,10 @@ namespace Flux {
         ImGui::Begin("Stats");
 
         ImGui::Text("FPS: %.1f (%.2f ms)", ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
-        ImGui::Text(
-            "Camera: (%.2f, %.2f, %.2f)",
+        ImGui::Text("Camera: (%.2f, %.2f, %.2f)",
             m_Camera.GetCamera().GetPosition().x,
             m_Camera.GetCamera().GetPosition().y,
-            m_Camera.GetCamera().GetPosition().z
-        );
+            m_Camera.GetCamera().GetPosition().z);
 
         auto stats = Application::Get().GetDevice().GetMemoryStatistics();
         if (stats.Budget > 0)
@@ -175,7 +192,9 @@ namespace Flux {
             ImGui::ProgressBar(usagePct, ImVec2(-1, 0));
         }
 
-        ImGui::Text("Allocations: %u (%.1f MB)", stats.AllocationCount, stats.AllocationBytes / (1024.f * 1024.f));
+        ImGui::Text("Allocations: %u (%.1f MB)",
+            stats.AllocationCount, stats.AllocationBytes / (1024.f * 1024.f));
+
         ImGui::End();
     }
 
@@ -198,6 +217,17 @@ namespace Flux {
 
         ImGui::Image(m_SceneRenderer->GetViewportTextureID(), size);
 
+        // --- Drag & Drop из Content Browser ---
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
+            {
+                std::string path = (const char*)payload->Data;
+                LoadModel(path);
+            }
+            ImGui::EndDragDropTarget();
+        }
+
         // --- Ray picking ---
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)
             && ImGui::IsWindowHovered()
@@ -207,25 +237,20 @@ namespace Flux {
             ImVec2 viewportPos = ImGui::GetWindowPos();
             ImVec2 contentMin = ImGui::GetCursorStartPos();
             ImVec2 mousePos = ImGui::GetMousePos();
-            ImVec2 vpSize = { m_ViewportSize.x, m_ViewportSize.y };
 
             float mouseX = mousePos.x - (viewportPos.x + contentMin.x);
             float mouseY = mousePos.y - (viewportPos.y + contentMin.y);
 
-            float ndcX = (mouseX / vpSize.x) * 2.0f - 1.0f;
-            float ndcY = 1.0f - (mouseY / vpSize.y) * 2.0f;
+            float ndcX = (mouseX / m_ViewportSize.x) * 2.0f - 1.0f;
+            float ndcY = 1.0f - (mouseY / m_ViewportSize.y) * 2.0f;
 
-            int picked = RayCaster::PickEntity(ndcX, ndcY, m_Camera.GetCamera(), *m_Scene);
-            if (picked >= 0)
-                m_ScenePanel.SetSelectedIndex(picked);
-            else
-                m_ScenePanel.SetSelectedIndex(-1);
+            Entity pickedEntity = RayCaster::PickEntity(ndcX, ndcY, m_Camera.GetCamera(), *m_Scene);
+            m_ScenePanel.SetSelectedEntity(pickedEntity);
         }
 
         // --- ImGuizmo ---
-        int selectedIndex = m_ScenePanel.GetSelectedIndex();
-        if (selectedIndex >= 0 && selectedIndex < (int)m_Scene->GetEntities().size()
-            && !m_Camera.IsCursorLocked())
+        Entity selectedEntity = m_ScenePanel.GetSelectedEntity();
+        if (selectedEntity && !m_Camera.IsCursorLocked())
         {
             ImGuizmo::SetOrthographic(false);
             ImGuizmo::SetDrawlist();
@@ -236,9 +261,8 @@ namespace Flux {
             const glm::mat4& view = m_Camera.GetCamera().GetViewMatrix();
             const glm::mat4& proj = m_Camera.GetCamera().GetProjectionMatrix();
 
-            Entity& entity = m_Scene->GetEntities()[selectedIndex];
-            Transform& t = entity.GetTransform();
-            glm::mat4 modelMat = t.GetMatrix();
+            auto& t = selectedEntity.GetComponent<TransformComponent>();
+            glm::mat4 modelMat = t.WorldMatrix;
 
             ImGuizmo::Manipulate(
                 glm::value_ptr(view),
@@ -250,16 +274,44 @@ namespace Flux {
 
             if (ImGuizmo::IsUsing())
             {
-                glm::vec3 position, rotation, scale;
-                ImGuizmo::DecomposeMatrixToComponents(
-                    glm::value_ptr(modelMat),
-                    glm::value_ptr(position),
-                    glm::value_ptr(rotation),
-                    glm::value_ptr(scale)
-                );
-                t.Position = position;
-                t.Rotation = rotation;
+                glm::mat4 localMat = modelMat;
+                if (selectedEntity.HasComponent<RelationshipComponent>())
+                {
+                    auto& rel = selectedEntity.GetComponent<RelationshipComponent>();
+                    if (rel.ParentID != UUID(nullptr))
+                    {
+                        Entity parent = m_Scene->GetEntityByUUID(rel.ParentID);
+                        if (parent)
+                            localMat = glm::inverse(
+                                parent.GetComponent<TransformComponent>().WorldMatrix) * modelMat;
+                    }
+                }
+
+                t.Translation = glm::vec3(localMat[3]);
+
+                glm::vec3 scale;
+                scale.x = glm::length(glm::vec3(localMat[0]));
+                scale.y = glm::length(glm::vec3(localMat[1]));
+                scale.z = glm::length(glm::vec3(localMat[2]));
                 t.Scale = scale;
+
+                glm::mat4 rotMat = localMat;
+                rotMat[0] /= scale.x;
+                rotMat[1] /= scale.y;
+                rotMat[2] /= scale.z;
+                t.Rotation = glm::quat_cast(rotMat);
+
+                if (selectedEntity.HasComponent<RelationshipComponent>() &&
+                    selectedEntity.GetComponent<RelationshipComponent>().ParentID != UUID(nullptr))
+                {
+                    Entity parent = m_Scene->GetEntityByUUID(
+                        selectedEntity.GetComponent<RelationshipComponent>().ParentID);
+                    t.WorldMatrix = parent
+                        ? parent.GetComponent<TransformComponent>().WorldMatrix * t.GetLocalMatrix()
+                        : t.GetLocalMatrix();
+                }
+                else
+                    t.WorldMatrix = t.GetLocalMatrix();
             }
         }
 
@@ -283,40 +335,27 @@ namespace Flux {
         auto& device = Application::Get().GetDevice();
 
         auto floor = PrimitiveFactory::CreatePlane(device, texLayout, 20.0f, 4);
-        auto& floorEntity = m_Scene->AddEntity(floor, "Floor");
-        floorEntity.GetTransform().Position = { 0.0f, -0.5f, 0.0f };
+        Entity floorEntity = m_Scene->CreateEntity("Floor");
+        floorEntity.AddComponent<MeshComponent>(floor);
+        floorEntity.GetComponent<TransformComponent>().Translation = { 0.0f, -0.5f, 0.0f };
 
         auto cube = PrimitiveFactory::CreateCube(device, texLayout);
-        auto& cubeEntity = m_Scene->AddEntity(cube, "Cube");
-        cubeEntity.GetTransform().Position = { 0.0f, 0.0f, 0.0f };
+        Entity cubeEntity = m_Scene->CreateEntity("Cube");
+        cubeEntity.AddComponent<MeshComponent>(cube);
+        cubeEntity.GetComponent<TransformComponent>().Translation = { 0.0f, 0.0f, 0.0f };
 
-        // =====================================================================
-        // Light
-        // =====================================================================
+        auto makeLight = [&](const char* name, glm::vec3 pos) {
+            Entity e = m_Scene->CreateEntity(name);
+            e.GetComponent<TransformComponent>().Translation = pos;
+            e.AddComponent<LightComponent>();
+            e.GetComponent<LightComponent>().Color = { 1.0f, 0.85f, 0.5f };
+            e.GetComponent<LightComponent>().Intensity = 300.0f;
+            };
 
-        auto& light1 = m_Scene->AddEntity(nullptr, "Point Light 1");
-        light1.GetTransform().Position = { 0.02f, 2.82f, 5.40f };
-        light1.AddLight();
-        light1.GetLight().Color = { 1.0f, 0.85f, 0.5f };
-        light1.GetLight().Intensity = 300.0f;
-
-        auto& light2 = m_Scene->AddEntity(nullptr, "Point Light 2");
-        light2.GetTransform().Position = { 0.11f, 2.82f, 2.13f };
-        light2.AddLight();
-        light2.GetLight().Color = { 1.0f, 0.85f, 0.5f };
-        light2.GetLight().Intensity = 300.0f;
-
-        auto& light3 = m_Scene->AddEntity(nullptr, "Point Light 3");
-        light3.GetTransform().Position = { 0.02f, 2.82f, -2.04f };
-        light3.AddLight();
-        light3.GetLight().Color = { 1.0f, 0.85f, 0.5f };
-        light3.GetLight().Intensity = 300.0f;
-
-        auto& light4 = m_Scene->AddEntity(nullptr, "Point Light 4");
-        light4.GetTransform().Position = { -0.02f, 2.82f, -5.45f };
-        light4.AddLight();
-        light4.GetLight().Color = { 1.0f, 0.85f, 0.5f };
-        light4.GetLight().Intensity = 300.0f;
+        makeLight("Point Light 1", { 0.02f, 2.82f,  5.40f });
+        makeLight("Point Light 2", { 0.11f, 2.82f,  2.13f });
+        makeLight("Point Light 3", { 0.02f, 2.82f, -2.04f });
+        makeLight("Point Light 4", { -0.02f, 2.82f, -5.45f });
     }
 
 } // namespace Flux

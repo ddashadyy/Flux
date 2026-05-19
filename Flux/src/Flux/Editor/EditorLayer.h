@@ -8,9 +8,9 @@
 #include "Flux/Scene/Scene.h"
 #include "Flux/Scene/Entity.h"
 #include "Flux/Scene/ScenePanel.h"
-
 #include "Flux/Scene/SceneRenderer.h"
 #include "Flux/Renderer/EditorCamera.h"
+#include "Flux/Editor/ContentBrowser.h"
 
 #include <imgui.h>
 #include <ImGuizmo.h>
@@ -33,28 +33,26 @@ namespace Flux {
     private:
         void RecreateSwapchainResources(uint32_t width, uint32_t height);
         void LoadDefaultScene();
+        void LoadModel(const std::string& path);
 
         void DrawDockspace();
         void DrawStatsWindow();
         void DrawViewport();
 
     private:
-        Ref<Scene>   m_Scene;
-        ScenePanel   m_ScenePanel;
-
+        Ref<Scene>           m_Scene;
+        ScenePanel           m_ScenePanel;
+        ContentBrowser       m_ContentBrowser;
         Scope<SceneRenderer> m_SceneRenderer;
-
-        EditorCamera m_Camera;
+        EditorCamera         m_Camera;
 
         glm::vec2 m_ViewportSize = { 1280.0f, 720.0f };
-        bool      m_ViewportFocused = false;
-
         glm::vec2 m_PendingViewportSize = { 0.0f, 0.0f };
+        bool      m_ViewportFocused = false;
         bool      m_ViewportNeedsResize = false;
 
         ImGuizmo::OPERATION m_GizmoOperation = ImGuizmo::TRANSLATE;
-
-        float m_LastFrameTime = 0.0f;
+        float               m_LastFrameTime = 0.0f;
     };
 
 } // namespace Flux
