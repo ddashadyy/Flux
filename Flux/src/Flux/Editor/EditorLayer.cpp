@@ -47,7 +47,7 @@ namespace Flux {
             if (key == FL_KEY_T) m_GizmoOperation = ImGuizmo::TRANSLATE;
             if (key == FL_KEY_R) m_GizmoOperation = ImGuizmo::ROTATE;
             if (key == FL_KEY_G) m_GizmoOperation = ImGuizmo::SCALE;
-            });
+        });
 
         m_SceneRenderer = CreateScope<SceneRenderer>();
         m_SceneRenderer->Init(app.GetDevice());
@@ -79,6 +79,7 @@ namespace Flux {
     void EditorLayer::LoadModel(const std::string& path)
     {
         auto& assetManager = Application::Get().GetAssetManager();
+        auto& device = Application::Get().GetDevice();
 
         auto model = assetManager.LoadModel(path);
         if (!model) return;
@@ -86,6 +87,33 @@ namespace Flux {
         const std::string name = std::filesystem::path(path).stem().string();
         Entity entity = m_Scene->CreateEntity(name);
         entity.AddComponent<MeshComponent>(model);
+
+        if (model->IsSkinned && model->Skel && !model->Animations.empty())
+        {
+            auto& anim = entity.AddComponent<AnimatorComponent>();
+
+            BufferSpec skinSpec{};
+            skinSpec.Size = AnimatorComponent::MAX_JOINTS * sizeof(glm::mat4);
+            skinSpec.Usage = BufferUsage::Uniform;
+            skinSpec.CpuVisible = true;
+            anim.SkinningBuffer = device.CreateBuffer(skinSpec);
+
+            auto* skinningLayout = m_SceneRenderer->GetSkinningDescriptorSetLayout();
+            anim.SkinningDescriptorSet = device.CreateDescriptorSet(skinningLayout);
+            anim.SkinningDescriptorSet->BindBuffer(0, anim.SkinningBuffer.get());
+            anim.SkinningDescriptorSet->Update();
+
+            std::vector<glm::mat4> identity(model->Skel->Joints.size(), glm::mat4(1.f));
+            anim.JointMatrices = identity;
+
+            size_t size = identity.size() * sizeof(glm::mat4);
+            anim.SkinningBuffer->SetData(identity.data(), size);
+
+            anim.Play(model->Animations[0]);
+
+            FL_CORE_INFO("AnimatorComponent created for '{}' | Joints: {} | Clips: {}",
+                name, model->Skel->Joints.size(), model->Animations.size());
+        }
     }
 
     // =========================================================================
