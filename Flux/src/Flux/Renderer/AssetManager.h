@@ -46,6 +46,10 @@ namespace Flux {
         Ref<Model> LoadGltfFromFile(const std::filesystem::path& path, RHIDescriptorSetLayout* textureLayout);
         Ref<Texture> LoadGltfTexture(const tinygltf::Model& gltfModel, int textureIndex);
 
+        Ref<Skeleton>        LoadGltfSkeleton(const tinygltf::Model& gltfModel, int skinIndex);
+        Ref<AnimationClip>   LoadGltfAnimation(const tinygltf::Model& gltfModel, int animIndex, const Skeleton& skeleton);
+        void                 ReadSkinnedAttributes(const tinygltf::Model& gltfModel, const tinygltf::Primitive& primitive, std::vector<SkinnedVertex>& vertices);
+
     private:
         RHIDevice& m_Device;
 
