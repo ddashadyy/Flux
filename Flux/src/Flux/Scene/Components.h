@@ -76,4 +76,27 @@ namespace Flux {
 
 	struct DestroyFlag {}; // тег, помечающий сущность на удаление
 
+	struct AnimatorComponent
+	{
+		Ref<AnimationClip>     CurrentClip;
+		float                  CurrentTime = 0.f;
+		bool                   Loop = true;
+		bool                   Playing = true;
+		float                  Speed = 1.f;
+
+		std::vector<glm::mat4> JointMatrices;
+
+		Scope<RHIBuffer>        SkinningBuffer; 
+		Scope<RHIDescriptorSet> SkinningDescriptorSet;
+
+		static constexpr uint32_t MAX_JOINTS = 256;
+
+		void Play(Ref<AnimationClip> clip)
+		{
+			CurrentClip = clip;
+			CurrentTime = 0.f;
+			Playing = true;
+		}
+	};
+
 }
