@@ -26,13 +26,15 @@ namespace Flux {
         dispatcher.Dispatch<MouseMovedEvent>(FL_BIND_EVENT_FN(EditorCamera::OnMouseMoved));
         dispatcher.Dispatch<MouseScrolledEvent>(FL_BIND_EVENT_FN(EditorCamera::OnMouseScrolled));
         dispatcher.Dispatch<KeyPressedEvent>(FL_BIND_EVENT_FN(EditorCamera::OnKeyPressed));
+        dispatcher.Dispatch<MouseButtonPressedEvent>(FL_BIND_EVENT_FN(EditorCamera::OnMouseButtonPressed));
+        dispatcher.Dispatch<MouseButtonReleasedEvent>(FL_BIND_EVENT_FN(EditorCamera::OnMouseButtonReleased));
     }
 
     void EditorCamera::ProcessKeyboard(float dt)
     {
         if (!m_CursorLocked) return;
 
-        float speed = m_Speed * dt;
+        const float speed = m_Speed * dt;
         glm::vec3 move(0.0f);
 
         if (Input::IsKeyPressed(FL_KEY_W))          move.z += 1.0f;
@@ -54,7 +56,8 @@ namespace Flux {
 
     bool EditorCamera::OnMouseMoved(MouseMovedEvent& e)
     {
-        if (!m_CursorLocked) return false;
+        bool rmb = Input::IsMouseButtonPressed(FL_MOUSE_BUTTON_RIGHT);
+        if (!m_CursorLocked && !rmb) return false;
 
         if (m_FirstMouse)
         {
@@ -78,6 +81,20 @@ namespace Flux {
     bool EditorCamera::OnMouseScrolled(MouseScrolledEvent& e)
     {
         m_Camera.SetFOV(glm::clamp(m_Camera.GetFOV() - e.GetYOffset(), 1.0f, 90.0f));
+        return false;
+    }
+
+    bool EditorCamera::OnMouseButtonPressed(MouseButtonPressedEvent& e)
+    {
+        if (e.GetMouseButton() == FL_MOUSE_BUTTON_RIGHT)
+            m_FirstMouse = true;
+        return false;
+    }
+
+    bool EditorCamera::OnMouseButtonReleased(MouseButtonReleasedEvent& e)
+    {
+        if (e.GetMouseButton() == FL_MOUSE_BUTTON_RIGHT)
+            m_FirstMouse = true;
         return false;
     }
 

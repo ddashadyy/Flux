@@ -30,6 +30,8 @@ namespace Flux {
         void ProcessKeyboard(float dt);
         bool OnMouseMoved(MouseMovedEvent& e);
         bool OnMouseScrolled(MouseScrolledEvent& e);
+        bool OnMouseButtonPressed(MouseButtonPressedEvent& e);
+        bool OnMouseButtonReleased(MouseButtonReleasedEvent& e);
         bool OnKeyPressed(KeyPressedEvent& e);
         void SetCursorMode(bool locked);
 
