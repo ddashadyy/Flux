@@ -1,6 +1,7 @@
 #include "flpch.h"
 #include "Scene.h"
 #include "Entity.h"
+#include "AnimationSystem.h"
 
 #include <algorithm> 
 
@@ -147,18 +148,15 @@ namespace Flux {
     void Scene::OnUpdate(float dt)
     {
         auto simpleView = m_Registry.view<TransformComponent>(entt::exclude<RelationshipComponent, DestroyFlag>);
-        for (auto entity : simpleView) 
-        {
-            simpleView.get<TransformComponent>(entity).WorldMatrix = simpleView.get<TransformComponent>(entity).GetLocalMatrix();
-        }
+        for (auto entity : simpleView)
+            simpleView.get<TransformComponent>(entity).WorldMatrix =
+                simpleView.get<TransformComponent>(entity).GetLocalMatrix();
 
         auto view = m_Registry.view<TransformComponent, RelationshipComponent>(entt::exclude<DestroyFlag>);
-        for (auto entity : view) 
-        {
-            if (view.get<RelationshipComponent>(entity).ParentID == UUID(nullptr)) 
-            { 
+        for (auto entity : view)
+            if (view.get<RelationshipComponent>(entity).ParentID == UUID(nullptr))
                 UpdateTransformRecursive(Entity(entity, this));
-            }
-        }
+
+        AnimationSystem::Update(*this, dt);
     }
 }
