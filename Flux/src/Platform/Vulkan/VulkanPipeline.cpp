@@ -31,6 +31,7 @@ namespace {
         case Int2:   return VK_FORMAT_R32G32_SINT;
         case Int3:   return VK_FORMAT_R32G32B32_SINT;
         case Int4:   return VK_FORMAT_R32G32B32A32_SINT;
+		case UInt4:  return VK_FORMAT_R32G32B32A32_UINT;
         }
 
         FL_CONSTEXPR_ASSERT(false, "Unknown ShaderDataType");
