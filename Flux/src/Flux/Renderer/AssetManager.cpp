@@ -13,6 +13,9 @@
 #include <nlohmann/json.hpp>
 #include <tiny_gltf.h>
 
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 namespace {
     struct VertexHasher
     {
@@ -290,7 +293,22 @@ namespace Flux {
         auto model = CreateRef<Model>();
         model->Path = path;
 
-        std::vector<Vertex> allVertices;
+        // Скелет
+        if (!gltfModel.skins.empty())
+        {
+            model->IsSkinned = true;
+            model->Skel = LoadGltfSkeleton(gltfModel, 0);
+        }
+
+        // Анимации
+        if (model->IsSkinned && !gltfModel.animations.empty())
+        {
+            for (int i = 0; i < (int)gltfModel.animations.size(); i++)
+                model->Animations.push_back(LoadGltfAnimation(gltfModel, i, *model->Skel));
+        }
+
+        std::vector<Vertex>        allVertices;
+        std::vector<SkinnedVertex> allSkinnedVertices;
 
         for (const auto& mesh : gltfModel.meshes)
         {
@@ -301,7 +319,7 @@ namespace Flux {
                 std::vector<Vertex> vertices;
                 std::vector<uint32_t> indices;
 
-                // Позиции
+                //Позиции
                 {
                     const auto& acc = gltfModel.accessors[primitive.attributes.at("POSITION")];
                     const auto& bv = gltfModel.bufferViews[acc.bufferView];
@@ -352,7 +370,7 @@ namespace Flux {
                     }
                 }
 
-                // ── Тангенты (vec4 — w = знак битангента) ────────────────────
+                // Тангенты 
                 bool hasTangents = primitive.attributes.count("TANGENT") > 0;
                 if (hasTangents)
                 {
@@ -370,13 +388,11 @@ namespace Flux {
 
                         glm::vec3 T = glm::normalize(glm::vec3(d[0], d[1], d[2]));
                         glm::vec3 N = glm::normalize(vertices[i].Normal);
-
                         T = glm::normalize(T - glm::dot(T, N) * N);
 
                         glm::vec3 B = glm::cross(N, T) * w;
-
                         if (glm::dot(glm::cross(N, T), B) < 0.0f)
-                            T = T * -1.0f;
+                            T = -T;
 
                         vertices[i].Tangent = T;
                     }
@@ -393,11 +409,9 @@ namespace Flux {
                     switch (acc.componentType)
                     {
                     case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
-                    {
                         for (size_t i = 0; i < acc.count; i++)
                             indices[i] = raw[i];
                         break;
-                    }
                     case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
                     {
                         const uint16_t* src = reinterpret_cast<const uint16_t*>(raw);
@@ -418,24 +432,44 @@ namespace Flux {
                     }
                 }
 
-                // AABB 
-                for (const auto& v : vertices)
-                {
-                    model->Bounds.Min = glm::min(model->Bounds.Min, v.Position);
-                    model->Bounds.Max = glm::max(model->Bounds.Max, v.Position);
-                }
-
-                // Вычисляем тангенты если нет в файле
+                // Тангенты по умолчанию если нет в файле
                 if (!hasTangents)
                 {
                     std::map<int, std::vector<uint32_t>> tmp = { { 0, indices } };
                     CalculateTangents(vertices, tmp);
                 }
 
-                // Объединяем в общий vertex buffer
-                uint32_t vertexOffset = (uint32_t)allVertices.size();
-                for (auto& idx : indices) idx += vertexOffset;
-                allVertices.insert(allVertices.end(), vertices.begin(), vertices.end());
+                // AABB
+                for (const auto& v : vertices)
+                {
+                    model->Bounds.Min = glm::min(model->Bounds.Min, v.Position);
+                    model->Bounds.Max = glm::max(model->Bounds.Max, v.Position);
+                }
+
+                // Skinned
+                if (model->IsSkinned)
+                {
+                    std::vector<SkinnedVertex> skinnedVerts(vertices.size());
+                    for (size_t i = 0; i < vertices.size(); i++)
+                    {
+                        skinnedVerts[i].Position = vertices[i].Position;
+                        skinnedVerts[i].Normal = vertices[i].Normal;
+                        skinnedVerts[i].TexCoord = vertices[i].TexCoord;
+                        skinnedVerts[i].Tangent = vertices[i].Tangent;
+                    }
+                    ReadSkinnedAttributes(gltfModel, primitive, skinnedVerts);
+
+                    uint32_t vertexOffset = (uint32_t)allSkinnedVertices.size();
+                    for (auto& idx : indices) idx += vertexOffset;
+                    allSkinnedVertices.insert(allSkinnedVertices.end(),
+                        skinnedVerts.begin(), skinnedVerts.end());
+                }
+                else
+                {
+                    uint32_t vertexOffset = (uint32_t)allVertices.size();
+                    for (auto& idx : indices) idx += vertexOffset;
+                    allVertices.insert(allVertices.end(), vertices.begin(), vertices.end());
+                }
 
                 // Index buffer
                 SubMesh subMesh{};
@@ -464,15 +498,12 @@ namespace Flux {
                     const auto& mat = gltfModel.materials[primitive.material];
                     const auto& pbr = mat.pbrMetallicRoughness;
 
-                    // Albedo
                     if (pbr.baseColorTexture.index >= 0)
                         subMesh.Mat.Albedo = LoadGltfTexture(gltfModel, pbr.baseColorTexture.index);
 
-                    // Normal map
                     if (mat.normalTexture.index >= 0)
                         subMesh.Mat.Normal = LoadGltfTexture(gltfModel, mat.normalTexture.index);
 
-                    // Metallic-Roughness
                     if (pbr.metallicRoughnessTexture.index >= 0)
                     {
                         subMesh.Mat.RoughnessMetallic = LoadGltfTexture(gltfModel, pbr.metallicRoughnessTexture.index);
@@ -500,19 +531,42 @@ namespace Flux {
             }
         }
 
-        uint64_t vbSize = allVertices.size() * sizeof(Vertex);
-        BufferSpec vbStage{}; vbStage.Size = vbSize;
-        vbStage.Usage = BufferUsage::Staging; vbStage.CpuVisible = true;
-        auto vbStaging = m_Device.CreateBuffer(vbStage);
-        vbStaging->SetData(allVertices.data(), vbSize);
+        // Vertex Buffer: skinned или static
+        if (model->IsSkinned)
+        {
+            model->SkinnedVertices = allSkinnedVertices;
 
-        BufferSpec vbSpec{}; vbSpec.Size = vbSize;
-        vbSpec.Usage = BufferUsage::Vertex; vbSpec.CpuVisible = false;
-        model->VertexBuffer = m_Device.CreateBuffer(vbSpec);
-        m_Device.CopyBuffer(vbStaging.get(), model->VertexBuffer.get(), vbSize);
+            uint64_t vbSize = allSkinnedVertices.size() * sizeof(SkinnedVertex);
+            BufferSpec vbStage{}; vbStage.Size = vbSize;
+            vbStage.Usage = BufferUsage::Staging; vbStage.CpuVisible = true;
+            auto vbStaging = m_Device.CreateBuffer(vbStage);
+            vbStaging->SetData(allSkinnedVertices.data(), vbSize);
 
-        FL_CORE_INFO("Loaded glTF: {0} | Vertices: {1} | SubMeshes: {2}",
-            path.string(), allVertices.size(), model->Meshes.size());
+            BufferSpec vbSpec{}; vbSpec.Size = vbSize;
+            vbSpec.Usage = BufferUsage::Vertex; vbSpec.CpuVisible = false;
+            model->VertexBuffer = m_Device.CreateBuffer(vbSpec);
+            m_Device.CopyBuffer(vbStaging.get(), model->VertexBuffer.get(), vbSize);
+
+            FL_CORE_INFO("Loaded glTF (skinned): {0} | Vertices: {1} | SubMeshes: {2} | Joints: {3} | Animations: {4}",
+                path.string(), allSkinnedVertices.size(), model->Meshes.size(),
+                model->Skel->Joints.size(), model->Animations.size());
+        }
+        else
+        {
+            uint64_t vbSize = allVertices.size() * sizeof(Vertex);
+            BufferSpec vbStage{}; vbStage.Size = vbSize;
+            vbStage.Usage = BufferUsage::Staging; vbStage.CpuVisible = true;
+            auto vbStaging = m_Device.CreateBuffer(vbStage);
+            vbStaging->SetData(allVertices.data(), vbSize);
+
+            BufferSpec vbSpec{}; vbSpec.Size = vbSize;
+            vbSpec.Usage = BufferUsage::Vertex; vbSpec.CpuVisible = false;
+            model->VertexBuffer = m_Device.CreateBuffer(vbSpec);
+            m_Device.CopyBuffer(vbStaging.get(), model->VertexBuffer.get(), vbSize);
+
+            FL_CORE_INFO("Loaded glTF (static): {0} | Vertices: {1} | SubMeshes: {2}",
+                path.string(), allVertices.size(), model->Meshes.size());
+        }
 
         return model;
     }
@@ -562,6 +616,207 @@ namespace Flux {
 
         FL_CORE_WARN("glTF texture {0}: no data, using default", textureIndex);
         return m_DefaultWhiteTexture;
+    }
+
+    Ref<Skeleton> AssetManager::LoadGltfSkeleton(const tinygltf::Model& gltfModel, int skinIndex)
+    {
+        auto skeleton = CreateRef<Skeleton>();
+        const auto& skin = gltfModel.skins[skinIndex];
+
+        int jointCount = (int)skin.joints.size();
+        skeleton->Joints.resize(jointCount);
+
+        std::vector<glm::mat4> ibms(jointCount, glm::mat4(1.0f));
+        if (skin.inverseBindMatrices >= 0)
+        {
+            const auto& acc = gltfModel.accessors[skin.inverseBindMatrices];
+            const auto& bv = gltfModel.bufferViews[acc.bufferView];
+            const auto& buf = gltfModel.buffers[bv.buffer];
+            const float* raw = reinterpret_cast<const float*>(
+                buf.data.data() + bv.byteOffset + acc.byteOffset);
+
+            for (int i = 0; i < jointCount; i++)
+                ibms[i] = glm::make_mat4(raw + i * 16);
+        }
+
+        std::unordered_map<int, int> nodeToJoint;
+        for (int i = 0; i < jointCount; i++)
+            nodeToJoint[skin.joints[i]] = i;
+
+        for (int i = 0; i < jointCount; i++)
+        {
+            int nodeIdx = skin.joints[i];
+            const auto& node = gltfModel.nodes[nodeIdx];
+
+            skeleton->Joints[i].Name = node.name;
+            skeleton->Joints[i].InverseBindMatrix = ibms[i];
+            skeleton->Joints[i].ParentIndex = -1;
+
+            for (int j = 0; j < jointCount; j++)
+            {
+                const auto& parentNode = gltfModel.nodes[skin.joints[j]];
+                for (int child : parentNode.children)
+                {
+                    if (child == nodeIdx)
+                    {
+                        skeleton->Joints[i].ParentIndex = j;
+                        break;
+                    }
+                }
+                if (skeleton->Joints[i].ParentIndex >= 0) break;
+            }
+        }
+
+        FL_CORE_INFO("Loaded skeleton: {0} joints", jointCount);
+        return skeleton;
+    }
+
+    Ref<AnimationClip> AssetManager::LoadGltfAnimation(const tinygltf::Model& gltfModel,
+        int animIndex,
+        const Skeleton& skeleton)
+    {
+        auto clip = CreateRef<AnimationClip>();
+        const auto& anim = gltfModel.animations[animIndex];
+        clip->Name = anim.name.empty() ? ("Anim_" + std::to_string(animIndex)) : anim.name;
+
+        int jointCount = (int)skeleton.Joints.size();
+        clip->PositionChannels.resize(jointCount);
+        clip->RotationChannels.resize(jointCount);
+        clip->ScaleChannels.resize(jointCount);
+
+        auto ReadFloats = [&](int accessorIdx) -> std::vector<float> {
+            const auto& acc = gltfModel.accessors[accessorIdx];
+            const auto& bv = gltfModel.bufferViews[acc.bufferView];
+            const auto& buf = gltfModel.buffers[bv.buffer];
+            const float* raw = reinterpret_cast<const float*>(
+                buf.data.data() + bv.byteOffset + acc.byteOffset);
+            return std::vector<float>(raw, raw + acc.count * tinygltf::GetNumComponentsInType(acc.type));
+            };
+
+        std::unordered_map<int, int> nodeToJoint;
+        if (!gltfModel.skins.empty())
+        {
+            const auto& skin = gltfModel.skins[0];
+            for (int i = 0; i < (int)skin.joints.size(); i++)
+                nodeToJoint[skin.joints[i]] = i;
+        }
+
+        for (const auto& channel : anim.channels)
+        {
+            auto it = nodeToJoint.find(channel.target_node);
+            if (it == nodeToJoint.end()) continue;
+            int jointIdx = it->second;
+
+            const auto& sampler = anim.samplers[channel.sampler];
+            auto times = ReadFloats(sampler.input);
+            auto values = ReadFloats(sampler.output);
+
+            if (!times.empty())
+                clip->Duration = std::max(clip->Duration, times.back());
+
+            if (channel.target_path == "translation")
+            {
+                auto& ch = clip->PositionChannels[jointIdx];
+                ch.Times = times;
+                ch.Values.resize(times.size());
+                for (size_t i = 0; i < times.size(); i++)
+                    ch.Values[i] = { values[i * 3], values[i * 3 + 1], values[i * 3 + 2] };
+            }
+            else if (channel.target_path == "rotation")
+            {
+                auto& ch = clip->RotationChannels[jointIdx];
+                ch.Times = times;
+                ch.Values.resize(times.size());
+                for (size_t i = 0; i < times.size(); i++)
+                    // glTF: xyzw, glm: wxyz
+                    ch.Values[i] = glm::quat(values[i * 4 + 3], values[i * 4], values[i * 4 + 1], values[i * 4 + 2]);
+            }
+            else if (channel.target_path == "scale")
+            {
+                auto& ch = clip->ScaleChannels[jointIdx];
+                ch.Times = times;
+                ch.Values.resize(times.size());
+                for (size_t i = 0; i < times.size(); i++)
+                    ch.Values[i] = { values[i * 3], values[i * 3 + 1], values[i * 3 + 2] };
+            }
+        }
+
+        FL_CORE_INFO("Loaded animation: '{0}' | Duration: {1:.2f}s", clip->Name, clip->Duration);
+        return clip;
+    }
+
+    void AssetManager::ReadSkinnedAttributes(const tinygltf::Model& gltfModel,
+        const tinygltf::Primitive& primitive,
+        std::vector<SkinnedVertex>& vertices)
+    {
+        if (primitive.attributes.count("JOINTS_0"))
+        {
+            const auto& acc = gltfModel.accessors[primitive.attributes.at("JOINTS_0")];
+            FL_CORE_WARN("JOINTS_0: componentType={0}, count={1}, byteStride={2}",
+                acc.componentType, acc.count,
+                gltfModel.bufferViews[acc.bufferView].byteStride);
+        }
+
+        if (primitive.attributes.count("WEIGHTS_0"))
+        {
+            const auto& acc = gltfModel.accessors[primitive.attributes.at("WEIGHTS_0")];
+            const auto& bv = gltfModel.bufferViews[acc.bufferView];
+            const auto& buf = gltfModel.buffers[bv.buffer];
+            size_t stride = bv.byteStride != 0 ? bv.byteStride : sizeof(float) * 4;
+            const uint8_t* base = buf.data.data() + bv.byteOffset + acc.byteOffset;
+        }
+
+        // JOINTS_0
+        if (primitive.attributes.count("JOINTS_0"))
+        {
+            const auto& acc = gltfModel.accessors[primitive.attributes.at("JOINTS_0")];
+            const auto& bv = gltfModel.bufferViews[acc.bufferView];
+            const auto& buf = gltfModel.buffers[bv.buffer];
+            const uint8_t* raw = buf.data.data() + bv.byteOffset + acc.byteOffset;
+
+            size_t elemSize = (acc.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) ? 1 : 2;
+            size_t stride = bv.byteStride != 0 ? bv.byteStride : elemSize * 4;
+
+            for (size_t i = 0; i < acc.count; i++)
+            {
+                if (acc.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
+                {
+                    const uint8_t* d = raw + i * stride;
+                    vertices[i].JointIndices = { d[0], d[1], d[2], d[3] };
+                }
+                else if (acc.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+                {
+                    const uint16_t* d = reinterpret_cast<const uint16_t*>(raw + i * stride);
+                    vertices[i].JointIndices = { d[0], d[1], d[2], d[3] };
+                }
+            }
+        }
+
+        // WEIGHTS_0
+        if (primitive.attributes.count("WEIGHTS_0"))
+        {
+            const auto& acc = gltfModel.accessors[primitive.attributes.at("WEIGHTS_0")];
+            const auto& bv = gltfModel.bufferViews[acc.bufferView];
+            const auto& buf = gltfModel.buffers[bv.buffer];
+
+            size_t stride = bv.byteStride != 0 ? bv.byteStride : sizeof(float) * 4;
+            const uint8_t* base = buf.data.data() + bv.byteOffset + acc.byteOffset;
+
+            for (size_t i = 0; i < acc.count; i++)
+            {
+                const float* d = reinterpret_cast<const float*>(base + i * stride);
+                vertices[i].JointWeights = { d[0], d[1], d[2], d[3] };
+            }
+        }
+
+        for (auto& v : vertices)
+        {
+            float sum = v.JointWeights.x + v.JointWeights.y + v.JointWeights.z + v.JointWeights.w;
+            if (sum > 0.0001f)
+                v.JointWeights /= sum;
+            else
+                v.JointWeights = { 1.f, 0.f, 0.f, 0.f }; 
+        }
     }
 
     // ==========================================
