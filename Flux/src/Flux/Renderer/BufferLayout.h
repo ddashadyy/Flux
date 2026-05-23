@@ -10,7 +10,7 @@ namespace Flux {
 	{
 		None = 0,
 		Float, Float2, Float3, Float4,
-		Int, Int2, Int3, Int4,
+		Int, Int2, Int3, Int4, UInt4
 	};
 
 	static uint32_t ShaderDataTypeSize(ShaderDataType type)
@@ -25,6 +25,7 @@ namespace Flux {
 		case ShaderDataType::Int2:     return 4 * 2;
 		case ShaderDataType::Int3:     return 4 * 3;
 		case ShaderDataType::Int4:     return 4 * 4;
+		case ShaderDataType::UInt4:    return 4 * 4;
 		}
 
 		FL_CORE_ASSERT(false, "Unknown ShaderDataType!");
@@ -57,6 +58,7 @@ namespace Flux {
 			case ShaderDataType::Int2:    return 2;
 			case ShaderDataType::Int3:    return 3;
 			case ShaderDataType::Int4:    return 4;
+			case ShaderDataType::UInt4:   return 4;
 			}
 
 			FL_CORE_ASSERT(false, "Unknown ShaderDataType!");
