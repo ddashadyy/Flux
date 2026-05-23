@@ -194,7 +194,7 @@ namespace Flux {
             {
                 if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
                 {
-                    std::string pathStr = entry.Path.string();
+                    const std::string pathStr = entry.Path.string();
                     ImGui::SetDragDropPayload("CONTENT_BROWSER_ITEM",
                         pathStr.c_str(), pathStr.size() + 1);
                     ImGui::Text("  %s", entry.Name.c_str());
