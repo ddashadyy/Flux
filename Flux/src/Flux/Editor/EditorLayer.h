@@ -17,7 +17,7 @@
 
 namespace Flux {
 
-    class EditorLayer : public Layer
+    class EditorLayer final : public Layer
     {
     public:
         EditorLayer();
