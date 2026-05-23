@@ -21,12 +21,15 @@ namespace Flux {
 
         void Render(RHICommandList* cmdList, Ref<Scene> scene, const PerspectiveCamera& camera);
 
-        ImTextureID             GetViewportTextureID()          const { return m_ViewportTextureID; }
-        RHIDescriptorSetLayout* GetTextureDescriptorSetLayout() const { return m_Renderer->GetTextureDescriptorSetLayout(); }
+        ImTextureID             GetViewportTextureID()           const { return m_ViewportTextureID; }
+        RHIDescriptorSetLayout* GetTextureDescriptorSetLayout()  const { return m_Renderer->GetTextureDescriptorSetLayout(); }
+        RHIDescriptorSetLayout* GetSkinningDescriptorSetLayout() const { return m_Renderer->GetSkinningDescriptorSetLayout(); }
+
 
     private:
         void BuildGraph();
         void BuildPipeline();
+        void BuildSkinnedPipeline();
         void RegisterImGuiTexture();
         void ExtractLightsFromScene(Ref<Scene> scene);
 
@@ -35,10 +38,15 @@ namespace Flux {
         glm::vec2  m_ViewportSize = { 1280.0f, 720.0f };
 
         Scope<Renderer>    m_Renderer;
+
         Scope<RHISampler>  m_DefaultSampler;
+
         Scope<RHIShader>   m_VertShader;
         Scope<RHIShader>   m_FragShader;
+        Scope<RHIShader>   m_SkinnedVertShader; 
+
         Scope<RHIPipeline> m_Pipeline;
+        Scope<RHIPipeline> m_SkinnedPipeline;
 
         RenderGraph m_RenderGraph;
 

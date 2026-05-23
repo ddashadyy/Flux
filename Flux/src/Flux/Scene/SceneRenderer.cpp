@@ -36,11 +36,14 @@ namespace Flux {
 
         auto vertSpv = LoadSPIRV("C:/dev/Flux/SandBox/assets/shaders/shader.vert.spv");
         auto fragSpv = LoadSPIRV("C:/dev/Flux/SandBox/assets/shaders/shader.frag.spv");
+        auto skinnedVertSpv = LoadSPIRV("C:/dev/Flux/SandBox/assets/shaders/shader_skinned.vert.spv");
         m_VertShader = m_Device->CreateShader(ShaderStage::Vertex, vertSpv);
         m_FragShader = m_Device->CreateShader(ShaderStage::Fragment, fragSpv);
+        m_SkinnedVertShader = m_Device->CreateShader(ShaderStage::Vertex, skinnedVertSpv);
 
         BuildGraph();
         BuildPipeline();
+        BuildSkinnedPipeline();
     }
 
     // =========================================================================
@@ -114,7 +117,7 @@ namespace Flux {
 
             auto& registry = m_CurrentScene->GetRegistry();
             auto meshView = registry.view<TransformComponent, MeshComponent>(
-                entt::exclude<DestroyFlag>);
+                entt::exclude<DestroyFlag, AnimatorComponent>);
 
             for (auto entity : meshView)
             {
@@ -124,9 +127,31 @@ namespace Flux {
                     m_Renderer->Submit(mesh.Model, transform.WorldMatrix);
             }
 
+            auto skinnedView = registry.view<TransformComponent, MeshComponent, AnimatorComponent>(
+                entt::exclude<DestroyFlag>);
+
+            for (auto entity : skinnedView)
+            {
+                auto& transform = skinnedView.get<TransformComponent>(entity);
+                auto& mesh = skinnedView.get<MeshComponent>(entity);
+                auto& anim = skinnedView.get<AnimatorComponent>(entity);
+
+                if (!mesh.Model || !mesh.Model->IsSkinned) continue;
+
+                ctx.CmdList->BindDescriptorSet(2, anim.SkinningDescriptorSet.get(), m_SkinnedPipeline.get());
+
+                m_Renderer->SubmitSkinned(
+                    mesh.Model,
+                    transform.WorldMatrix,
+                    anim.SkinningBuffer.get(),
+                    anim.SkinningDescriptorSet.get(),
+                    m_SkinnedPipeline.get()
+                );
+            }
+
             m_Renderer->EndScene();
             ctx.CmdList->EndRenderPass();
-                });
+        });
 
         m_RenderGraph.SetOutput(m_ColorResolveHandle);
         m_RenderGraph.Compile(*m_Device);
@@ -179,6 +204,52 @@ namespace Flux {
         desc.DebugName = "ScenePipeline";
 
         m_Pipeline = m_Device->CreatePipeline(desc);
+    }
+
+    void SceneRenderer::BuildSkinnedPipeline()
+    {
+        RHIRenderPass* geometryRenderPass = m_RenderGraph.GetPassRenderPass("GeometryPass");
+
+        // Skinned vertex layout
+        BufferLayout skinnedLayout = {
+            { ShaderDataType::Float3 }, // Position
+            { ShaderDataType::Float3 }, // Normal
+            { ShaderDataType::Float2 }, // TexCoord
+            { ShaderDataType::Float3 }, // Tangent
+            { ShaderDataType::UInt4  }, // JointIndices
+            { ShaderDataType::Float4 }, // JointWeights
+        };
+
+        PipelineDesc desc{};
+        desc.VertexShader = m_SkinnedVertShader.get();
+        desc.FragmentShader = m_FragShader.get();
+        desc.VertexLayout = skinnedLayout;
+        desc.RenderPass = geometryRenderPass;
+        desc.Topology = PrimitiveTopology::TriangleList;
+        desc.Samples = MSAA_SAMPLES;
+
+        desc.PushConstants.Stage = ShaderStage::Vertex | ShaderStage::Fragment;
+        desc.PushConstants.Offset = 0;
+        desc.PushConstants.Size = sizeof(PushConstantData);
+
+        desc.DescriptorSetLayouts = {
+            m_Renderer->GetGlobalDescriptorSetLayout(),   // set=0
+            m_Renderer->GetTextureDescriptorSetLayout(),  // set=1
+            m_Renderer->GetSkinningDescriptorSetLayout(), // set=2
+        };
+
+        desc.DepthStencil.DepthTest = true;
+        desc.DepthStencil.DepthWrite = true;
+        desc.DepthStencil.DepthCompare = CompareOp::Less;
+
+        desc.Rasterizer.Cull = CullMode::None;
+        desc.Rasterizer.Fill = FillMode::Solid;
+        desc.Rasterizer.Front = FrontFace::Clockwise;
+
+        desc.Blend = BlendPreset::Opaque();
+        desc.DebugName = "SkinnedPipeline";
+
+        m_SkinnedPipeline = m_Device->CreatePipeline(desc);
     }
 
     // =========================================================================
