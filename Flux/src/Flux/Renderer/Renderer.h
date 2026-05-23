@@ -54,10 +54,17 @@ namespace Flux {
         void ClearLights();
 
         void Submit(Ref<Model> model, const glm::mat4& transform);
+        void SubmitSkinned(Ref<Model> model, const glm::mat4& transform,
+            RHIBuffer* skinningBuffer,
+            RHIDescriptorSet* skinningDescriptorSet,
+            RHIPipeline* skinnedPipeline);
+
+        
         void EndScene();
 
-        RHIDescriptorSetLayout* GetGlobalDescriptorSetLayout()  const { return m_GlobalDescriptorSetLayout.get(); }
-        RHIDescriptorSetLayout* GetTextureDescriptorSetLayout() const { return m_TextureDescriptorSetLayout.get(); }
+        RHIDescriptorSetLayout* GetGlobalDescriptorSetLayout()   const { return m_GlobalDescriptorSetLayout.get(); }
+        RHIDescriptorSetLayout* GetTextureDescriptorSetLayout()  const { return m_TextureDescriptorSetLayout.get(); }
+        RHIDescriptorSetLayout* GetSkinningDescriptorSetLayout() const { return m_SkinningDescriptorSetLayout.get(); }
 
     private:
         RHIDevice& m_Device;
@@ -69,6 +76,8 @@ namespace Flux {
         Scope<RHIDescriptorSetLayout> m_GlobalDescriptorSetLayout;
         Scope<RHIDescriptorSet>       m_GlobalDescriptorSet;
         Scope<RHIDescriptorSetLayout> m_TextureDescriptorSetLayout;
+
+        Scope<RHIDescriptorSetLayout> m_SkinningDescriptorSetLayout;
 
         std::vector<PointLight> m_PointLights;
     };

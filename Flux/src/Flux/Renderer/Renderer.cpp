@@ -30,6 +30,16 @@ namespace Flux {
         textureLayoutDesc.Bindings.emplace_back(2, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 1);
         m_TextureDescriptorSetLayout = m_Device.CreateDescriptorSetLayout(textureLayoutDesc);
 
+        // Set 2: SkinningUBO (palette матриц)
+        DescriptorSetLayoutDesc skinningLayoutDesc{};
+        skinningLayoutDesc.Bindings.emplace_back(
+            0,
+            DescriptorType::UniformBuffer,
+            ShaderStage::Vertex,
+            1
+        );
+        m_SkinningDescriptorSetLayout = m_Device.CreateDescriptorSetLayout(skinningLayoutDesc);
+
         // GlobalUBO буфер — CpuVisible, обновляется каждый кадр
         BufferSpec uboSpec{};
         uboSpec.Size = sizeof(GlobalUBO);
@@ -103,6 +113,41 @@ namespace Flux {
 
             subMesh.Draw(*m_CommandList);
         }
+    }
+
+    void Renderer::SubmitSkinned(Ref<Model> model, const glm::mat4& transform,
+        RHIBuffer* skinningBuffer,
+        RHIDescriptorSet* skinningDescriptorSet,
+        RHIPipeline* skinnedPipeline)
+    {
+        if (!model || !skinningBuffer) return;
+
+        m_CommandList->SetPipeline(skinnedPipeline);
+        m_CommandList->BindDescriptorSet(0, m_GlobalDescriptorSet.get(), skinnedPipeline);
+        m_CommandList->BindDescriptorSet(2, skinningDescriptorSet, skinnedPipeline);
+        m_CommandList->BindVertexBuffer(model->VertexBuffer.get());
+
+        for (const auto& subMesh : model->Meshes)
+        {
+            m_CommandList->BindDescriptorSet(1, subMesh.Mat.DescriptorSet.get(), skinnedPipeline);
+
+            PushConstantData push{};
+            push.Model = transform;
+            push.Color = subMesh.Mat.Color;
+            push.RoughnessOverride = subMesh.Mat.RoughnessOverride;
+            push.MetallicOverride = subMesh.Mat.MetallicOverride;
+
+            m_CommandList->PushConstants(
+                skinnedPipeline,
+                ShaderStage::Vertex | ShaderStage::Fragment,
+                0, sizeof(PushConstantData), &push
+            );
+
+            subMesh.Draw(*m_CommandList);
+        }
+
+        m_CommandList->SetPipeline(m_Pipeline);
+        m_CommandList->BindDescriptorSet(0, m_GlobalDescriptorSet.get(), m_Pipeline);
     }
 
     void Renderer::EndScene()
