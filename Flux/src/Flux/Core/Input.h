@@ -1,7 +1,9 @@
 #pragma once
 
-
 #include "Base.h"
+#include "KeyCodes.h"
+#include "MouseButtonCodes.h"
+
 
 namespace Flux {
 
